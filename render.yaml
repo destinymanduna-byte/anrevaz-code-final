@@ -1,0 +1,14 @@
+   services:
+     - type: web
+       name: anrevaz-code-final
+       env: python
+       plan: free
+       buildCommand: pip install -r requirements.txt
+       startCommand: uvicorn main_final_monthly_with_paynow:app --host 0.0.0.0 --port $PORT
+       envVars:
+         - key: ECOCASH_ONLY
+           value: 0772590884
+         - key: WHATSAPP_ONLY
+           value: 0783788376
+         - key: VERIFY_TOKEN
+           value: ANREVAZ_VERIFY
