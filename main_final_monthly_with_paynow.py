@@ -11,10 +11,10 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "ANREVAZ_VERIFY")
 
 @app.get("/")
 def home():
-    return {"status": "ANREVAZ OS LIVE", "region": "Central Africa - Frankfurt/JNB", "ecocash": ECOCASH_ONLY}
+    return {"status": "ANREVAZ OS LIVE", "region": "Central Africa - Frankfurt/AF", "ecocash": ECOCASH_ONLY}
 
 @app.get("/api/materials")
-def materials(): no
+def materials():
     return {
         "materials": [
             {"id": 1, "name": "Cement", "price": 12.5, "unit": "bag"},
@@ -41,5 +41,5 @@ def verify_webhook(request: Request):
 @app.post("/webhook")
 async def webhook_post(request: Request):
     data = await request.json()
-    print("Webhook received:", data)
+    print("webhook received:", data)
     return {"status": "received"}
