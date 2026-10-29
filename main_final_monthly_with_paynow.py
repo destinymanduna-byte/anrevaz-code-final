@@ -1,351 +1,500 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-import json, base64
+import json
 
 app = FastAPI()
 
 MATS = {}
-MATS["K"] = {"items": [{"name": "Melamine", "price": 85, "need": 6, "unit": "Sheets", "spec": "Base", "supplier": "BoardMart"}]}
-MATS["R"] = {"items": [{"name": "Chromadek", "price": 18, "need": 85, "unit": "Sheets", "spec": "3.6m", "supplier": "Steel"}]}
-MATS["F"] = {"items": [{"name": "Cement", "price": 12, "need": 30, "unit": "Bags", "spec": "50kg", "supplier": "PPC"}]}
-MATS["P"] = {"items": [{"name": "Toilet", "price": 180, "need": 2, "unit": "Sets", "spec": "White", "supplier": "PlumbMart"}]}
+MATS["K"] = {"items": [{"name": "Melamine"}]}
+MATS["R"] = {"items": [{"name": "Chromadek"}]}
+MATS["F"] = {"items": [{"name": "Cement"}]}
+MATS["P"] = {"items": [{"name": "Toilet"}]}
+MATS["Kitchen"] = MATS["K"]
+MATS["Roof"] = MATS["R"]
+MATS["Foundation"] = MATS["F"]
+MATS["Plumber"] = MATS["P"]
 MATS["Fitted Kitchen (3m x 3m)"] = MATS["K"]
 MATS["Hipped Roof (100sqm)"] = MATS["R"]
 MATS["Builder Foundation (100sqm)"] = MATS["F"]
 MATS["Plumber Full House"] = MATS["P"]
 
 SUBS = {}
-SUBS["$3 Starter"] = {"price": 3, "features": ["1 Workspace"]}
-SUBS["$7 Pro"] = {"price": 7, "features": ["3 Workspaces"], "popular": True}
-SUBS["$12 Premium"] = {"price": 12, "features": ["Unlimited"], "best": True}
+SUBS["$3 Starter"] = {"price": 3}
+SUBS["$7 Pro"] = {"price": 7}
+SUBS["$12 Premium"] = {"price": 12}
 
 FLOOR = {}
-FLOOR["127sqm $3627"] = {"price": 3627, "rooms": ["Lounge"], "roof": "Hipped Roof (100sqm)", "desc": "Popular"}
+FLOOR["127sqm $3627"] = {"price": 3627, "rooms": ["Lounge"]}
 
 def handle_whatsapp_message(phone, msg):
     m = msg.lower().strip()
     if m in ["hi", "hello", "menu", "start"]:
-        return "ANREVAZ SUPERSONIC QUOTE v12.6 Kai AI\nLanding PREMIUM Any Trade Quote in 3 sec\nWhatsApp 0783788376 EcoCash 0772590884\n"
-    return "ANREVAZ SUPERSONIC QUOTE v12.6 Kai AI"
+        return "ANREVAZ SUPERSONIC QUOTE Kai AI\nLanding PREMIUM"
+    return "ANREVAZ SUPERSONIC QUOTE Kai AI"
 
 MATS_JSON = json.dumps(MATS)
 SUBS_JSON = json.dumps(SUBS)
 FLOOR_JSON = json.dumps(FLOOR)
 
-HTML_B64_PARTS = [
-    "PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgY2hhcnNldD0iVVRGLTgiPjxtZXRhIG5h",
-    "bWU9InZpZXdwb3J0IiBjb250ZW50PSJ3aWR0aD1kZXZpY2Utd2lkdGgsaW5pdGlhbC1zY2FsZT0x",
-    "Ij48dGl0bGU+QU5SRVZBWiBTVVBFUlNPTklDIFpVT1RFIC0gS2FpIEFJPC90aXRsZT48c2NyaXB0",
-    "IHNyYz0iaHR0cHM6Ly9jZG4udGFpbHdpbmRjc3MuY29tIj48L3NjcmlwdD48c3R5bGU+LnNjcmVl",
-    "bnR7ZGlzcGxheTpub25lfS5zY3JlZW4uYWN0aXZle2Rpc3BsYXk6YmxvY2t9Lm5hdi1hY3RpdmV7",
-    "YmFja2dyb3VuZDojNWI3Y2ZmIWltcG9ydGFudDtjb2xvcjp3aGl0ZSFpbXBvcnRhbnR9LmdsYXNz",
-    "e2JhY2tncm91bmQ6cmdiYSgyNTUsMjU1LDI1NSwwLjA2KTtib3JkZXI6MXB4IHNvbGlkIHJnYmEo",
-    "MjU1LDI1NSwyNTUsMC4xKX08L3N0eWxlPjwvaGVhZD48Ym9keSBzdHlsZT0iYmFja2dyb3VuZDoj",
-    "MGEwZTI2O2NvbG9yOndoaXRlO2ZvbnQtZmFtaWx5OkludGVyO21pbi1oZWlnaHQ6MTAwdmgiPjxk",
-    "aXYgY2xhc3M9Im1heC13LT1bNTYwcHhdIG1heC1hdXRvIHBCLTI4Ij48ZGl2IGlkPSJzY3JlZW4t",
-    "bGFuZGluZyIgY2xhc3M9InNjcmVlbiBhY3RpdmUgcHgtNSBweS02Ij48ZGl2IGNsYXNzPSJmbGV4",
-    "IGp1c3RpZnktYmV0d2VlbiBpdGVtcy1jZW50ZXIiPjxkaXYgY2xhc3M9ImZsZXggZ2FwLTIgaXRl",
-    "bXMtY2VudGVyIj48ZGl2IGNsYXNzPSJ3LTkgaC05IHJvdW5kZWQteGwgYmctWzViN2NmZl0gZ3Jp",
-    "ZCBwbGFjZS1pdGVtcy1jZW50ZXIiPkE8L2Rpdj48ZGl2IGNsYXNzPSJmb250LWJsYWNrIj5BTlJF",
-    "VkFaIE9TPC9kaXY+PC9kaXY+PGRpdiBjbGFzcz0iYmctWzViN2NmZl0vMzAgcHgtMyBweS0xIHJv",
-    "dW5kZWQtZnVsbCB0ZXh0LVsxMHB4XSI+UFJFTUlVTTwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9Im10",
-    "LTgiPjxkaXYgY2xhc3M9ImZvbnQtYmxhY2sgdGV4dC0zeGwiPkFueSBUcmFkZSBRdW90ZSBpbiAz",
-    "IHNlYzwvZGl2PjxkaXYgY2xhc3M9ImZvbnQtYmxhY2sgdGV4dC0zeGwgdGV4dC1bNWI3Y2ZmXSI+",
-    "QUkgRm9sbG93LXVwIFdpbnMgVGhlIEpvYjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9Im10LTggZ3Jp",
-    "ZCBncmlkLWNvbHMtNSBnYXAtMiI+PGRpdiBjbGFzcz0iZ2xhc3Mgcm91bmRlZC0yeGwgcC0zIHRl",
-    "eHQtY2VudGVyIj48ZGl2PkNhcnBlbnRlcjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9ImdsYXNzIHJv",
-    "dW5kZWQtMnhsIHAzIHRleHQtY2VudGVyIj48ZGl2PldlbGRlcjwvZGl2PjwvZGl2PjxkaXYgY2xh",
-    "c3M9ImdsYXNzIHJvdW5kZWQtMnhsIHAzIHRleHQtY2VudGVyIj48ZGl2PkJ1aWxkZXI8L2Rpdj48",
-    "L2Rpdj48ZGl2IGNsYXNzPSJnbGFzcyByb3VuZGVkLTJ4bCBwLTMgdGV4dC1jZW50ZXIiPjxkaXY+",
-    "UGx1bWJlcjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9ImdsYXNzIHJvdW5kZWQtMnhsIHAzIHRleHQt",
-    "Y2VudGVyIj48ZGl2PkdsYXppZXI8L2Rpdj48L2Rpdj48L2Rpdj48ZGl2IGNsYXNzPSJtdC04Ij48",
-    "ZGl2IGNsYXNzPSJmb250LWJvbGQiPkFJIGF1dG8gZm9sbG93dXAgdGltZWxpbmU8L2Rpdj48ZGl2",
-    "IGNsYXNzPSJtdC0zIGdsYXNzIHJvdW5kZWQtMnhsIHA1Ij48ZGl2IGNsYXNzPSJmbGV4IGp1c3Rp",
-    "ZnktYmV0d2VlbiI+PGRpdiBjbGFzcz0idGV4dC1jZW50ZXIiPjxkaXYgY2xhc3M9InctOCBoLTgg",
-    "cm91bmRlZC1mdWxsIGJnLVs1YjdjZmZdIGdyaWQgcGxhY2UtaXRlbXMtY2VudGVyIj52PC9kaXY+",
-    "PGRpdiBjbGFzcz0idGV4dC1bMTBweF0iPjAgc2VjIHF1b3RlPC9kaXY+PC9kaXY+PGRpdiBjbGFz",
-    "cz0idGV4dC1jZW50ZXIiPjxkaXYgY2xhc3M9InctNiBoLTYgcm91bmRlZC1mdWxsIGJvcmRlciBi",
-    "b3JkZXItd2hpdGUvMzAiPjwvZGl2PjxkaXYgY2xhc3M9InRleHQtWzEwcHhdIj4yaDwvZGl2Pjwv",
-    "ZGl2PjxkaXYgY2xhc3M9InRleHQtY2VudGVyIj48ZGl2IGNsYXNzPSJ3LTYgaC02IHJvdW5kZWQt",
-    "ZnVsbCBib3JkZXIgYm9yZGVyLXdoaXRlLzMwIj48L2Rpdj48ZGl2IGNsYXNzPSJ0ZXh0LVsxMHB4",
-    "XSI+MjRoPC9kaXY+PC9kaXY+PGRpdiBjbGFzcz0idGV4dC1jZW50ZXIiPjxkaXYgY2xhc3M9Inc2",
-    "IGgtNiByb3VuZGVkLWZ1bGwgYm9yZGVyIGJvcmRlci13aGl0ZS8zMCI+PC9kaXY+PGRpdiBjbGFz",
-    "cz0idGV4dC1bMTBweF0iPmRheSAzPC9kaXY+PC9kaXY+PGRpdiBjbGFzcz0idGV4dC1jZW50ZXIi",
-    "PjxkaXYgY2xhc3M9InctNiBoLTYgcm91bmRlZC1mdWxsIGJvcmRlciBib3JkZXItd2hpdGUvMzAi",
-    "PjwvZGl2PjxkaXYgY2xhc3M9InRleHQtWzEwcHhdIj5kYXkgNzwvZGl2PjwvZGl2PjwvZGl2Pjwv",
-    "ZGl2PjwvZGl2PjxkaXYgY2xhc3M9Im10LTYgZ3JpZCBncmlkLWNvbHMtMiBnYXAtMyI+PGRpdiBj",
-    "bGFzcz0iZ2xhc3Mgcm91bmRlZC0yeGwgcDQgdGV4dC1jZW50ZXIiPjxkaXY+V2hhdHNBcHA8L2Rp",
-    "dj48ZGl2IGNsYXNzPSJmb250LWJsYWNrIj4wNzgzNzg4Mzc2PC9kaXY+PC9kaXY+PGRpdiBjbGFz",
-    "cz0iZ2xhc3Mgcm91bmRlZC0yeGwgcDQgdGV4dC1jZW50ZXIiPjxkaXY+RWNvQ2FzaDwvZGl2Pjxk",
-    "aXYgY2xhc3M9ImZvbnQtYmxhY2siPjA3NzI1OTA4ODQ8L2Rpdj48L2Rpdj48L2Rpdj48YnV0dG9u",
-    "IG9uY2xpY2s9InNob3dTY3JlZW4oJ3JlZ2lzdGVyJykiIGNsYXNzPSJ3LWZ1bGwgbXQtNiBiZy1b",
-    "NWI3Y2ZmXSBweS00IHJvdW5kZWQteGwgZm9udC1ibGFjayI+R2V0IEluc3RhbnQgUXVvdGUgTm93",
-    "PC9idXR0b24+PC9kaXY+PGRpdiBpZD0ic2NyZWVuLXJlZ2lzdGVyIiBjbGFzcz0ic2NyZWVuIHB4",
-    "LTUgcHktNiI+PGRpdiBjbGFzcz0iZm9udC1ibGFjayI+Q3JlYXRlIEFjY291bnQgLSBTeXN0ZW0g",
-    "UGFzcyBBTlItS0QtWFhYWCAtIEZ1bGwgUHJvZmlsZTwvZGl2PjxkaXYgY2xhc3M9Im10LTQgc3Bh",
-    "Y2UteS0zIj48aW5wdXQgaWQ9InROYW1lIiBwbGFjZWhvbGRlcj0iRnVsbCBOYW1lIiBjbGFzcz0i",
-    "dy1mdWxsIHB4LTQgcHktMyByb3VuZGVkLXhsIHRleHQtc20gdGV4dC1ibGFjayI+PHNpbmNwdXQg",
-    "aWQ9InRUcmFkZU1haW4iIHBsYWNlaG9sZGVyPSJUcmFkZSIgY2xhc3M9InctZnVsbCBweC00IHB5",
-    "LTMgcm91bmRlZC14bCB0ZXh0LXNtIHRleHQtYmxhY2siPjxvcHRpb24+Q2FycGVudGVyPC9vcHRp",
-    "b24+PG9wdGlvbj5CdWlsZGVyPC9vcHRpb24+PG9wdGlvbj5XZWxkZXI8L29wdGlvbj48b3B0aW9u",
-    "PlBsdW1iZXI8L29wdGlvbj48b3B0aW9uPkVsZWN0cmljaWFuPC9vcHRpb24+PG9wdGlvbj5HbGF6",
-    "aWVyPC9vcHRpb24+PG9wdGlvbj5GbG9vciBQbGFuIDEyN3NxbSAkMzYyNzwvb3B0aW9uPjwvc2Vs",
-    "ZWN0PjxpbnB1dCBpZD0idFBob25lIiBwbGFjZWhvbGRlcj0iUGhvbmUgMDc3MjU5MDg4NCIgY2xh",
-    "c3M9InctZnVsbCBweC00IHB5LTMgcm91bmRlZC14bCB0ZXh0LXNtIHRleHQtYmxhY2siPjxpbnB1",
-    "dCBpZD0idExvY2F0aW9uIiBwbGFjZWhvbGRlcj0iTG9jYXRpb24gS2Fkb21hIENDQiIgY2xhc3M9",
-    "InctZnVsbCBweC00IHB5LTMgcm91bmRlZC14bCB0ZXh0LXNtIHRleHQtYmxhY2siPjxpbnB1dCBp",
-    "ZD0idFllYXJzIiB0eXBlPSJudW1iZXIiIHBsYWNlaG9sZGVyPSJZZWFycyBFeHBlcmllbmNlIDgi",
-    "IGNsYXNzPSJ3LWZ1bGwgcHgtNCBweS0zIHJvdW5kZWQteGwgdGV4dC1zbSB0ZXh0LWJsYWNrIj48",
-    "aW5wdXQgaWQ9InRJZE51bWJlciIgcGxhY2Vob2xkZXI9Ik5hdGlvbmFsIElEIiBjbGFzcz0idy1m",
-    "dWxsIHB4LTQgcHktMyByb3VuZGVkLXhsIHRleHQtc20gdGV4dC1ibGFjayI+PGlucHV0IGlkPSJ0",
-    "UGhvdG8iIHR5cGU9ImZpbGUiIGFjY2VwdD0iaW1hZ2UvKiIgY2xhc3M9InctZnVsbCB0ZXh0LVsx",
-    "MXB4XSB0ZXh0LXdoaXRlLzUwIj48YnV0dG9uIG9uY2xpY2s9ImNyZWF0ZUlEKCkiIGNsYXNzPSJ3",
-    "LWZ1bGwgYmctWzViN2NmZl0gcHktNCByb3VuZGVkLXhsIGZvbnQtYmxhY2siPkNyZWF0ZSBNeSBT",
-    "eXN0ZW0gUGFzcyArIFByaXZhdGUgV29ya3NwYWNlPC9idXR0b24+PC9kaXY+PC9kaXY+PGRpdiBp",
-    "ZD0ic2NyZWVuLXdvcmtzcGFjZSIgY2xhc3M9InNjcmVlbiBweC01IHB5LTYiPjxkaXYgY2xhc3M9",
-    "ImZvbnQtYmxhY2siPk15IFByaXZhdGUgV29ya3NwYWNlIC0gVHJhZGUgU2VsZWN0ZWQgLSBPbmxp",
-    "bmUgV2ViIE9ubHk8L2Rpdj48ZGl2IGlkPSJpZENhcmQiIGNsYXNzPSJtdC00IGJnLVsxZTJhNmJd",
-    "IGJvcmRlciBib3JkZXItWzViN2NmZl0vNTAgcm91bmRlZC0yeGwgcDQiPjxkaXYgaWQ9ImlkTmFt",
-    "ZSIgY2xhc3M9ImZvbnQtYmxhY2siPlRpbmFzaGUgTW95bzwvZGl2PjxkaXYgaWQ9ImlkVHJhZGUi",
-    "IGNsYXNzPSJ0ZXh0LVs1YjdjZmZdIHRleHQteHMiPkZpdHRlZCBLaXRjaGVuczwvZGl2PjxkaXYg",
-    "aWQ9IndvcmtzcGFjZUJhZGdlIiBjbGFzcz0ibXQtMSBiZy1ncmVlbi01MDAvMjAgdGV4dC1ncmVl",
-    "bi0zMDAgdGV4dC1bOXB4XSBweC0yIHB5LTEgcm91bmRlZC1mdWxsIj5XUy1YWFhYIFBSSVZBVEUg",
-    "T05MSU5FIFdFQiBPTkxZPC9kaXY+PGRpdiBjbGFzcz0ibXQtMiI+V29ya3NwYWNlOiA8c3BhbiBp",
-    "ZD0iaWROdW1iZXIiPldTLUE3Szk8L3NwYW4+IC0gPHNwYW4gaWQ9IndzVHJhZGVOYW1lIj5GaXR0",
-    "ZWQgS2l0Y2hlbnMgT05MWTwvc3Bhbj48L2Rpdj48L2Rpdj48ZGl2IGNsYXNzPSJtdC00Ij48ZGl2",
-    "IGNsYXNzPSJmb250LWJsYWNrIj5TZWxlY3QgVHJhZGUgLSBFdmVyeXRoaW5nIEZvciBUaGF0IEpv",
-    "YjwvZGl2PjxkaXYgaWQ9InByb2plY3RzTGlzdCIgY2xhc3M9Im10LTIgc3BhY2UteS0yIj48L2Rp",
-    "dj48L2Rpdj48ZGl2IGNsYXNzPSJtdC00Ij48ZGl2IGNsYXNzPSJmb250LWJsYWNrIj5GbG9vciBQ",
-    "bGFuczwvZGl2PjxkaXYgaWQ9ImZsb29yUGxhbnNMaXN0IiBjbGFzcz0ibXQtMiBzcGFjZS15LTIi",
-    "PjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9Im10LTQgZ2xhc3Mgcm91bmRlZC0yeGwgcDQiPjxkaXYg",
-    "Y2xhc3M9ImZvbnQtYmxhY2sgdGV4dC1zbSI+T25saW5lIEFydGlzYW5zIC0gV2ViIEludGVyZmFj",
-    "ZSBPbmx5PC9kaXY+PGRpdiBpZD0ib25saW5lTGlzdCIgY2xhc3M9Im10LTIiPjxkaXYgY2xhc3M9",
-    "ImZsZXgganVzdGlmeS1iZXR3ZWVuIGJnLXdoaXRlLzUgcC0yIHJvdW5kZWQtbGciPjxzcGFuPlRp",
-    "bmFzaGUgTW95byAtIENhcnBlbnRlcjwvc3Bhbj48c3BhbiBjbGFzcz0idGV4dC1ncmVlbi00MDAi",
-    "Pk9ubGluZSAtIFdlYiBPbmx5PC9zcGFuPjwvZGl2PjxkaXYgY2xhc3M9ImZsZXgganVzdGlmeS1i",
-    "ZXR3ZWVuIGJnLXdoaXRlLzUgcC0yIHJvdW5kZWQtbGciPjxzcGFuPkJsZXNzZWQgLSBCdWlsZGVy",
-    "PC9zcGFuPjxzcGFuIGNsYXNzPSJ0ZXh0LWdyZWVuLTQwMCI+T25saW5lIC0gV2ViIE9ubHk8L3Nw",
-    "YW4+PC9kaXY+PC9kaXY+PC9kaXY+PC9kaXY+PGRpdiBpZD0ic2NyZWVuLW1hdGVyaWFscyIg",
-    "Y2xhc3M9InNjcmVlbiBweC01IHB5LTYiPjxkaXYgY2xhc3M9ImZvbnQtYmxhY2siPldvcmtzcGFj",
-    "ZSBNYXRlcmlhbHMgLSBQZXIgVW5pdCAtIEFkZCBSZW1vdmUgLSBNYW51YWwgUHJpY2VzPC9kaX",
-    "Y+PGRpdiBjbGFzcz0ibXQtMiI+PHNwYW4gaWQ9Im1hdGVyaWFsc1Byb2plY3ROYW1lIj5GaXR0ZWQg",
-    "S2l0Y2hlbjwvc3Bhbj4gLSA8c3BhbiBpZD0ibWF0ZXJpYWxzV29ya3NwYWNlSWQiPldTLUE3Szk8",
-    "L3NwYW4+PC9kaXY+PGRpdiBpZD0iZmxvb3JQbGFuRHJhd2luZyIgY2xhc3M9ImhpZGRlbiBtdC00",
-    "IGJnLXdoaXRlIHRleHQtYmxhY2sgcm91bmRlZC14bCBwNCI+PGRpdiBjbGFzcz0iZm9udC1ibGFj",
-    "ayB0ZXh0LXNtIj5GbG9vciBQbGFuIERyYXdpbmcgLSA8c3BhbiBpZD0iZmxvb3JQbGFuVGl0bGUi",
-    "PjEyN3NxbSAkMzYyNzwvc3Bhbj48L2Rpdj48ZGl2IGlkPSJmbG9vclBsYW5Sb29tcyIgY2xhc3M9",
-    "Im10LTIgYmctZ3JheS01MCBwLTMgcm91bmRlZC1sZyB0ZXh0LVsxMXB4XSI+PC9kaXY+PGRpdiBp",
-    "ZD0iZmxvb3JQbGFuSW5jbHVkZXMiIGNsYXNzPSJtdC0yIGJnLWJsdWUtNTAgcC0zIHJvdW5kZWQt",
-    "bGcgdGV4dC1bMTFweF0iPjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9Im10LTQiPjxkaXYgY2xhc3M9",
-    "ImZsZXgganVzdGlmeS1iZXR3ZWVuIj48ZGl2IGNsYXNzPSJmb250LWJsYWNrIj5NYXRlcmlhbHMg",
-    "UGVyIFVuaXQgLSBBZGQgUmVtb3ZlIExlZnQgRXhjZXNzIC0gTWFudWFsPC9kaXY+PGJ1dHRvbiBv",
-    "bmNsaWNrPSJhZGRDdXN0b21NYXRlcmlhbCgpIiBjbGFzcz0iYmctWzViN2NmZl0gcHgtMyBweS0x",
-    "IHJvdW5kZWQtZnVsbCB0ZXh0LVsxMXB4XSI+KyBBZGQgTWF0ZXJpYWw8L2J1dHRvbj48L2Rpdj48",
-    "ZGl2IGNsYXNzPSJtdC0yIGJnLWJsYWNrLzQwIGJvcmRlciBib3JkZXItd2hpdGUvMTAgcm91bmRl",
-    "ZC14bCBvdmVyZmxvdy1oaWRkZW4iPjxkaXYgY2xhc3M9ImdyaWQgZ3JpZC1jb2xzLTEyIGdhcC0y",
-    "IGJnLXdoaXRlLzEwIHAyIHRleHQtWzlleF0gZm9udC1ib2xkIj48ZGl2IGNsYXNzPSJjb2wtc3Bh",
-    "bi00Ij5NYXRlcmlhbDwvZGl2PjxkaXYgY2xhc3M9ImNvbC1zcGFuLTIgdGV4dC1jZW50ZXIiPlF0",
-    "eSBVbml0PC9kaXY+PGRpdiBjbGFzcz0iY29sLXNwYW4tMiB0ZXh0LXJpZ2h0Ij5QcmljZSBFZGl0",
-    "YWJsZTwvZGl2PjxkaXYgY2xhc3M9ImNvbC1zcGFuLTIgdGV4dC1yaWdodCI+VG90YWw8L2Rpdj48",
-    "ZGl2IGNsYXNzPSJjb2wtc3Bhbi0yIHRleHQtY2VudGVyIj5BY3Rpb248L2Rpdj48L2Rpdj48ZGl2",
-    "IGlkPSJtYXRlcmlhbHNEZXRhaWxlZExpc3QiPjwvZGl2PjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9",
-    "Im10LTQgZ2xhc3Mgcm91bmRlZC0yeGwgcDQiPjxkaXYgY2xhc3M9ImZvbnQtYmxhY2sgdGV4dC1z",
-    "bSI+TGVmdCAvIEV4Y2VzcyBNYXRlcmlhbHMgLSBBZGQgUmVtb3ZlIEJlZm9yZSBQcmludGluZzwv",
-    "ZGl2PjxkaXYgY2xhc3M9Im10LTMgZmxleCBnYXAtMiI+PGlucHV0IGlkPSJsZWZ0TWF0ZXJpYWxO",
-    "YW1lIiBwbGFjZWhvbGRlcj0iTGVmdCBNYXRlcmlhbCIgY2xhc3M9ImZsZXgtMSBweC0zIHB5LTIg",
-    "cm91bmRlZC1sZyB0ZXh0LXNtIHRleHQtYmxhY2siPjxpbnB1dCBpZD0ibGVmdE1hdGVyaWFsUXR5",
-    "IiB0eXBlPSJudW1iZXIiIHBsYWNlaG9sZGVyPSJRdHkiIGNsYXNzPSJ3LTIwIHB4LTMgcHktMiBy",
-    "b3VuZGVkLWxnIHRleHQtc20gdGV4dC1ibGFjayI+PGJ1dHRvbiBvbmNsaWNrPSJhZGRMZWZ0TWF0",
-    "ZXJpYWwoKSIgY2xhc3M9ImJnLXdoaXRlLzEwIGJvcmRlciBweC0zIHB5LTIgcm91bmRlZC1sZyB0",
-    "ZXh0LVsxMXB4XSI+QWRkIExlZnQ8L2J1dHRvbj48L2Rpdj48ZGl2IGlkPSJsZWZ0TWF0ZXJpYWxz",
-    "TGlzdCIgY2xhc3M9Im10LTMgc3BhY2UteS0xIHRleHQtWzExcHhdIj48L2Rpdj48L2Rpdj48ZGl2",
-    "IGNsYXNzPSJtdC00IGdsYXNzIHJvdW5kZWQtMnhsIHA0Ij48aW5wdXQgaWQ9ImNsaWVudE5hbWUi",
-    "IHBsYWNlaG9sZGVyPSJDbGllbnQgRnVsbCBOYW1lIiBjbGFzcz0idy1mdWxsIHB4LTMgcHktMiBy",
-    "b3VuZGVkLWxnIHRleHQtc20gdGV4dC1ibGFjayI+PGlucHV0IGlkPSJjbGllbnRQaG9uZSIgcGxh",
-    "Y2Vob2xkZXI9IkNsaWVudCBQaG9uZSIgY2xhc3M9InctZnVsbCBweC0zIHB5LTIgcm91bmRlZC1s",
-    "ZyB0ZXh0LXNtIHRleHQtYmxhY2sgbXQtMiI+PGlucHV0IGlkPSJjbGllbnRBZGRyZXNzIiBwbGFj",
-    "ZWhvbGRlcj0iQWRkcmVzcyIgY2xhc3M9InctZnVsbCBweC0zIHB5LTIgcm91bmRlZC1sZyB0ZXh0",
-    "LXNtIHRleHQtYmxhY2sgbXQtMiI+PGlucHV0IGlkPSJjbGllbnRQcm9qZWN0RGV0YWlscyIgcGxh",
-    "Y2Vob2xkZXI9IlByb2plY3QgRGV0YWlscyIgY2xhc3M9InctZnVsbCBweC0zIHB5LTIgcm91bmRl",
-    "ZC1sZyB0ZXh0LXNtIHRleHQtYmxhY2sgbXQtMiI+PGlucHV0IGlkPSJjTmFtZSIgcGxhY2Vob2xk",
-    "ZXI9IkNvbXBhbnkgTmFtZSIgY2xhc3M9InctZnVsbCBweC0zIHB5LTIgcm91bmRlZC1sZyB0ZXh0",
-    "LXNtIHRleHQtYmxhY2sgbXQtMiI+PC9kaXY+PGRpdiBjbGFzcz0ibXQtNCBnbGFzcyByb3VuZGVk",
-    "LTJ4bCBwLTQgYm9yZGVyIGJvcmRlci1bNWI3Y2ZmXS8zMCI+PGRpdiBjbGFzcz0iZmxleCBqdXN0",
-    "aWZ5LWJldHdlZW4gdGV4dC1zbSI+PHNwYW4+TWF0ZXJpYWxzIEVkaXRhYmxlIFBlciBVbml0Ojwv",
-    "c3Bhbj48c3BhbiBpZD0ibWF0VG90YWwiPiQwPC9zcGFuPjwvZGl2PjxkaXYgY2xhc3M9ImZsZXgg",
-    "anVzdGlmeS1iZXR3ZWVuIHRleHQtc20iPjxzcGFuPkxhYm91ciAzMCUgJDY1MCBGbG9vcjo8L3Nw",
-    "YW4+PHNwYW4gaWQ9ImxhYm9yVG90YWwiPiQwPC9zcGFuPjwvZGl2PjxkaXYgY2xhc3M9ImZsZXgg",
-    "anVzdGlmeS1iZXR3ZWVuIHRleHQtc20iPjxzcGFuPlRyYW5zcG9ydDogJDwvc3Bhbj48aW5wdXQg",
-    "aWQ9InRyYW5zcG9ydCIgdHlwZT0ibnVtYmVyIiB2YWx1ZT0iMzAiIGNsYXNzPSJ3LTIwIHB4LTIg",
-    "cHktMSByb3VuZGVkLWxnIHRleHQtYmxhY2sgdGV4dC1zbSIgb25pbnB1dD0iY2FsY1RvdGFsKCki",
-    "PjwvZGl2PjxkaXYgY2xhc3M9ImZsZXgganVzdGlmeS1iZXR3ZWVuIHRleHQtc20iPjxzcGFuPkxl",
-    "ZnQgLyBFeGNlc3M6PC9zcGFuPjxzcGFuIGlkPSJsZWZ0VG90YWwiPiQwPC9zcGFuPjwvZGl2Pjxk",
-    "aXYgY2xhc3M9ImZsZXgganVzdGlmeS1iZXR3ZWVuIGZvbnQtYmxhY2sgdGV4dC1sZyBtdC0zIHB0",
-    "LTMgYm9yZGVyLXQgYm9yZGVyLXdoaXRlLzEwIj48c3Bhbj5Ub3RhbDo8L3NwYW4+PHNwYW4gaWQ9",
-    "ImdyYW5kVG90YWwiIGNsYXNzPSJ0ZXh0LVs1YjdjZmZdIj4kMDwvc3Bhbj48L2Rpdj48L2Rpdj48",
-    "YnV0dG9uIG9uY2xpY2s9ImdlbmVyYXRlUXVvdGUoKSIgY2xhc3M9InctZnVsbCBtdC00IGJnLVs1",
-    "YjdjZmZdIHB5LTMgcm91bmRlZC14bCBmb250LWJsYWNrIj5HZW5lcmF0ZSBQcm9mZXNzaW9uYWwg",
-    "UXVvdGUgKyBQcmludDwvYnV0dG9uPjwvZGl2PjxkaXYgaWQ9InNjcmVlbi1wcmV2aWV3IiBjbGFz",
-    "cz0ic2NyZWVuIHB4LTUgcHktNiI+PGRpdiBjbGFzcz0iZm9udC1ibGFjayI+UHJvZmVzc2lvbmFs",
-    "IFF1b3RhdGlvbiAtIEFuIHJldmF6IFN1cGVyc29uaWMgUXVvdGUgLSBLYWkgQUk8L2Rpdj48ZGl2",
-    "IGNsYXNzPSJtdC00IGJnLXdoaXRlIHRleHQtYmxhY2sgcm91bmRlZC0yeGwgcDUiPjxkaXYgY2xh",
-    "c3M9ImZsZXgganVzdGlmeS1iZXR3ZWVuIGJvcmRlci1iIHBiLTMiPjxkaXY+PGRpdiBpZD0icHJl",
-    "dmlld0NvbXBhbnkiIGNsYXNzPSJmb250LWJsYWNrIj5Nb3lvIENhcnBlbnRyeTwvZGl2PjxkaXYg",
-    "aWQ9InByZXZpZXdDb21wYW55QWRkcmVzcyIgY2xhc3M9InRleHQtWzljXSB0ZXh0LWdyYXktNTAw",
-    "Ij4xMjM0IFJpbXVrYSBLYWRvbWEgMDc3MjU5MDg4NDwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9InRl",
-    "eHQtcmlnaHQiPjxkaXYgY2xhc3M9ImZvbnQtYmxhY2sgdGV4dC1bNWI3Y2ZmXSB0ZXh0LXhzIj5T",
-    "VVBFUlNPTklDIFpVT1RFICsgRkxPT1IgUExBTiArIElOVk9JQ0U8L2Rpdj48ZGl2IGlkPSJxdW90",
-    "ZU51bWJlciIgY2xhc3M9InRleHQtWzEwcHhdIj4jV1MtQTdLOPC9kaXY+PGRpdiBpZD0icXVvdGVk",
-    "YXRlIiBjbGFzcz0idGV4dC1bOXB4XSB0ZXh0LWdyYXktNTAwIj4yOSBPY3QgMjAyNjwvZGl2Pjwv",
-    "ZGl2PjwvZGl2PjxkaXYgY2xhc3M9Im10LTMiPjxkaXYgaWQ9InByZXZpZXdUcmFkZXNtYW4iIGNs",
-    "YXNzPSJ0ZXh0LVsxMHB4XSI+TmFtZSBUcmFkZSBXb3Jrc3BhY2UgQU5SLUtEIFZlcmlmaWVkPC9k",
-    "aXY+PGRpdiBpZD0icHJldmlld0NsaWVudCIgY2xhc3M9InRleHQtWzEwcHhdIG10LTIiPkNsaWVu",
-    "dCBGbG9vciBQbGFuICQzNjI3PC9kaXY+PC9kaXY+PGRpdiBjbGFzcz0ibXQtMyI+PGRpdiBpZD0i",
-    "cHJldmlld01hdGVyaWFscyIgY2xhc3M9InRleHQtWzhweF0iPjwvZGl2PjxkaXYgaWQ9InByZXZp",
-    "ZXdMZWZ0IiBjbGFzcz0ibXQtMiB0ZXh0LVs4cHhdIj48L2Rpdj48L2Rpdj48ZGl2IGNsYXNzPSJt",
-    "dC0zIGJnLWdyYXktNTAgcm91bmRlZC14bCBwLTIuNSB0ZXh0LVsxMHB4XSI+PHNwYW4gaWQ9InBy",
-    "ZXZpZXdHcmFuZCIgY2xhc3M9InRleHQtWzViN2NmZl0gZm9udC1ibGFjayI+JDA8L3NwYW4+PC9k",
-    "aXY+PC9kaXY+PGRpdiBjbGFzcz0ibXQtNCBncmlkIGdyaWQtY29scy0yIGdhcC0zIj48YnV0dG9u",
-    "IG9uY2xpY2s9IndpbmRvdy5wcmludCgpIiBjbGFzcz0iYmctWzViN2NmZl0gcHktMyByb3VuZGVk",
-    "LXhsIGZvbnQtYm9sZCB0ZXh0LXhzIj5Eb3dubG9hZCBQREY8L2J1dHRvbj48YSBpZD0id2FMaW5r",
-    "MSIgaHJlZj0id2hhdHNhcHA6Ly9zZW5kP3Bob25lPTI2Mzc4Mzc4ODM3NiZ0ZXh0PUhpJTIwUXVv",
-    "dGUlMjAkMzYyNyUyMFJlYWR5IiBjbGFzcz0iYmctWyMyNUQzNjZdIHB5LTMgcm91bmRlZC14bCBm",
-    "b250LWJvbGQgdGV4dC14cyB0ZXh0LWNlbnRlciI+V2hhdHNBcHAgS2FpPC9hPjwvZGl2PjxidXR0",
-    "b24gb25jbGljaz0ic2hvd1NjcmVlbignYWknKSIgY2xhc3M9InctZnVsbCBtdC0zIGJnLVs1Yjdj",
-    "ZmZdLzIwIGJvcmRlciBweS0yLjUgcm91bmRlZC14bCBmb250LWJvbGQgdGV4dC14cyI+TmV4dDog",
-    "S2FpIEFJIEZvbGxvdy11cCBUaWxsIFdPTjwvYnV0dG9uPjwvZGl2PjxkaXYgaWQ9InNjcmVlbi1h",
-    "aSIgY2xhc3M9InNjcmVlbiBweC01IHB5LTYiPjxkaXYgY2xhc3M9ImZvbnQtYmxhY2siPkthaSBB",
-    "SSAtIEZvbGxvdy11cCBXaW5zIFRoZSBKb2IgLSBTdXBlcnNvbmljIFF1b3RlPC9kaXY+PGRpdiBj",
-    "bGFzcz0ibXQtNSBiZy13aGl0ZS81IGJvcmRlciByb3VuZGVkLTJ4bCBwLTMiPjxkaXYgY2xhc3M9",
-    "ImhbMzgwcHhdIGZsZXggZmxleC1jb2wiPjxkaXYgaWQ9ImFpQ2hhdCIgY2xhc3M9ImZsZXgtMSBv",
-    "dmVyZmxvdy15LWF1dG8gc3BhY2UteS0yIHRleHQtWzExcHhdIj48ZGl2IGNsYXNzPSJiZy1bNWI3",
-    "Y2ZmXS8yMCBib3JkZXIgcm91bmRlZC14bCBwLTMiPjxkaXYgY2xhc3M9ImZvbnQtYm9sZCI+S2Fp",
-    "IEFJIFJlYWR5IC0gUHJpdmF0ZTwvZGl2PjxkaXYgY2xhc3M9InRleHQtWzEwcHhdIG10LTEiPldv",
-    "cmtzcGFjZSA8c3BhbiBpZD0iYWlXb3Jrc3BhY2VJZCI+V1MtQTdLOTwvc3Bhbj4gKyBGbG9vciBQ",
-    "bGFuICQzNjI3PC9kaXY+PGRpdiBjbGFzcz0idGV4dC1bMTBweF0gdGV4dC13aGl0ZS82MCBtdC0x",
-    "Ij5JIGFtIEthaSAtIE9ubHkgc2VlcyBZT1VSIHByaXZhdGUgd29ya3NwYWNlPC9kaXY+PGRpdiBj",
-    "bGFzcz0idGV4dC1bMTBweF0gdGV4dC13aGl0ZS82MCI+Tm8gb3RoZXIgdHJhZGVzbWFuIGRhdGEg",
-    "LSBOZWdvdGlhdGVzIGlmIGV4cGVuc2l2ZTwvZGl2PjxkaXYgY2xhc3M9InRleHQtWzEwcHhdIHRl",
-    "eHQtd2hpdGUvNjAiPkZvbGxvdy11cCB0aW1lbGluZSAwIHNlYyAyaCAyNGggZGF5MyBkYXk3IHRp",
-    "bGwgV09OPC9kaXY+PC9kaXY+PC9kaXY+PGRpdiBjbGFzcz0ibXQtMyBmbGV4IGdhcC0yIj48aW5w",
-    "dXQgaWQ9ImFpSW5wdXQiIHBsYWNlaG9sZGVyPSJBc2sgS2FpIC0gdG9vIGV4cGVuc2l2ZSAvIGZv",
-    "bGxvdyB1cCAvIHdvbiIgY2xhc3M9ImZsZXgtMSBiZy13aGl0ZS8xMCBib3JkZXIgcm91bmRlZC1m",
-    "dWxsIHB4LTQgcHktMi41IHRleHQteHMiPjxidXR0b24gb25jbGljaz0ic2VuZEFJKCkiIGNsYXNz",
-    "PSJiZy1bNWI3Y2ZmXSBweC00IHB5LTIuNSByb3VuZGVkLWZ1bGwgZm9udC1ib2xkIHRleHQteHMi",
-    "PkFzayBLYWk8L2J1dHRvbj48L2Rpdj48L2Rpdj48L2Rpdj48ZGl2IGNsYXNzPSJtdC0zIGdyaWQg",
-    "Z3JpZC1jb2xzLTMgZ2FwLTIiPjxidXR0b24gb25jbGljaz0icXVpY2tBSSgndG9vIGV4cGVuc2l2",
-    "ZScpIiBjbGFzcz0iYmctd2hpdGUvMTAgYm9yZGVyIHB5LTIgcm91bmRlZC14bCB0ZXh0LVsxMHB4",
-    "XSI+S2FpOiBUb28gRXhwZW5zaXZlPC9idXR0b24+PGJ1dHRvbiBvbmNsaWNrPSJxdWlja0FJKCdm",
-    "b2xsb3cgdXAnKSIgY2xhc3M9ImJnLXdoaXRlLzEwIGJvcmRlciBweS0yIHJvdW5kZWQteGwgdGV4",
-    "dC1bMTBweF0iPkthaTogRm9sbG93LXVwIFRpbGwgV09OPC9idXR0b24+PGJ1dHRvbiBvbmNsaWNr",
-    "PSJxdWlja0FJKCd3b24nKSIgY2xhc3M9ImJnLWdyZWVuLTUwMC8yMCBib3JkZXIgcHktMiByb3Vu",
-    "ZGVkLXhsIHRleHQtWzEwcHhdIj5LYWk6IFdvbiArIEludm9pY2U8L2J1dHRvbj48L2Rpdj48YnV0",
-    "dG9uIG9uY2xpY2s9InNob3dTY3JlZW4oJ3N1YnNjcmliZScpIiBjbGFzcz0idy1mdWxsIG10LTQg",
-    "YmcteWVsbG93LTQwMCB0ZXh0LWJsYWNrIHB5LTMgcm91bmRlZC14bCBmb250LWJsYWNrIj5OZXh0",
-    "OiBTdWJzY3JpYmUgUGFja2FnZXMgJDMgJDcgJDEyPC9idXR0b24+PC9kaXY+PGRpdiBpZD0ic2Ny",
-    "ZWVuLXN1YnNjcmliZSIgY2xhc3M9InNjcmVlbiBweC01IHB5LTYiPjxkaXYgY2xhc3M9ImZvbnQt",
-    "YmxhY2siPlBhY2thZ2VzIC0gRGlmZmVyZW50IFN1YnNjcmlwdGlvbnMgLSBXaGF0IEl0IEluY2x1",
-    "ZGVzIFJlc3BlY3RpdmVseTwvZGl2PjxkaXYgY2xhc3M9Im10LTUgc3BhY2UteS00IiBpZD0ic3Vi",
-    "c0xpc3QiPjwvZGl2PjxkaXYgY2xhc3M9Im10LTUgdGV4dC1jZW50ZXIiPjxkaXYgY2xhc3M9Imdy",
-    "aWQgZ3JpZC1jb2xzLTEgZ2FwLTIiPjxhIGhyZWY9IndoYXRzYXBwOi8vc2VuZD9waG9uZT0yNjM3",
-    "ODM3ODgzNzYmdGV4dD1IaSUyMEFOUkVWQVolMjBTVVBFUlNPTklDJTIwUVVPVEUlMjBLYWklMjBB",
-    "SSIgY2xhc3M9ImJnLVsjMjVEMzY2XSBweS0zIHJvdW5kZWQteGwgZm9udC1ib2xkIHRleHQtc20g",
-    "YmxvY2siPndoYXRzYXBwOi8vc2VuZD9waG9uZT0yNjM3ODM3ODgzNzYmIHRleHQ9SGklMjBBTlJF",
-    "VkFaJTIwU1VQRVJTT05JQyUyMFFVT1RFJTIwS2FpJTIwQUkgLSBObyBEYXRhIE5lZWRlZCAtIEth",
-    "aSBBSTwvYT48YSBocmVmPSJodHRwczovL3dhLm1lLzI2Mzc4Mzc4ODM3NiZ0ZXh0PUhpJTIwQU5S",
-    "RVZBWiUyMFNVUEVSU09OSUMlMjBRVU9URSUyMEthaSUyMEFJIiBjbGFzcz0iYmctd2hpdGUvMTAg",
-    "Ym9yZGVyIHB5LTMgcm91bmRlZC14bCBmb250LWJvbGQgdGV4dC1zbSBibG9jayI+aHR0cHM6Ly93",
-    "YS5tZS8yNjM3ODM3ODgzNzYmIHRleHQ9SGklMjBBTlJFVkFaJTIwU1VQRVJTT05JQyUyMFFVT1RF",
-    "JTIwS2FpJTIwQUkgLSBBbHRlcm5hdGl2ZSAtIEthaSBBSTwvYT48L2Rpdj48L2Rpdj48L2Rpdj48",
-    "L2Rpdj48ZGl2IGNsYXNzPSJmaXhlZCBib3R0b20tMCBsZWZ0LTAtMCByaWdodC0wLTggYmctYmxh",
-    "Y2svOTAgYm9yZGVyLXQgYm9yZGVyLXdoaXRlLzEwIj48ZGl2IGNsYXNzPSJtYXgtdy1bNTYwcHhdIG1h",
-    "eC1hdXRvIGdyaWQgZ3JpZC1jb2xzLTYgdGV4dC1jZW50ZXIgdGV4dC1bOHB4XSBweS0yIGdhcC0x",
-    "Ij48YnV0dG9uIG9uY2xpY2s9InNob3dTY3JlZW4oJ2xhbmRpbmcnKSIgaWQ9Im5hdi1sYW5kaW5n",
-    "IiBjbGFzcz0ibmF2LWFjdGl2ZSBweS0xLjUgcm91bmRlZC1sZyI+SG9tZTxici5TdXBlcnNvbmlj",
-    "PC9idXR0b24+PGJ1dHRvbiBvbmNsaWNrPSJzaG93U2NyZWVuKCdyZWdpc3RlcicpIiBpZD0ibmF2",
-    "LXJlZ2lzdGVyIiBjbGFzcz0idGV4dC13aGl0ZS80MCBweS0xLjUgcm91bmRlZC1sZyI+U3lzdGVt",
-    "IFBhc3M8YnI+RnVsbCBQcm9maWxlPC9idXR0b24+PGJ1dHRvbiBvbmNsaWNrPSJzaG93U2NyZWVu",
-    "KCd3b3Jrc3BhY2UnKSIgaWQ9Im5hdi13b3Jrc3BhY2UiIGNsYXNzPSJ0ZXh0LXdoaXRlLzQwIHB5",
-    "LTEuNSByb3VuZGVkLWxnIj5UcmFkZTxici5Xb3Jrc3BhY2UgT25saW5lPC9idXR0b24+PGJ1dHRv",
-    "biBvbmNsaWNrPSJzaG93U2NyZWVuKCdtYXRlcmlhbHMnKSIgaWQ9Im5hdi1tYXRlcmlhbHMiIGNs",
-    "YXNzPSJ0ZXh0LXdoaXRlLzQwIHB5LTEuNSByb3VuZGVkLWxnIj5NYXRlcmlhbHM8YnI+UGVyIFVu",
-    "aXQgQWRkIFJlbW92ZSBNYW51YWw8L2J1dHRvbj48YnV0dG9uIG9uY2xpY2s9InNob3dTY3JlZW4o",
-    "J3ByZXZpZXcnKSIgaWQ9Im5hdi1wcmV2aWV3IiBjbGFzcz0idGV4dC13aGl0ZS80MCBweS0xLjUg",
-    "cm91bmRlZC1sZyI+UXVvdGU8YnI+U3VwZXJzb25pYyBQcmludDwvYnV0dG9uPjxidXR0b24gb25j",
-    "bGljaz0ic2hvd1NjcmVlbignYWknKSIgaWQ9Im5hdi1haSIgY2xhc3M9InRleHQtd2hpdGUvNDAg",
-    "cHktMS41IHJvdW5kZWQtbGciPkthaSBBSTxici5UaWxsIFdPTjwvYnV0dG9uPjwvZGl2PjwvZGl2",
-    "PjxzY3JpcHQ+bGV0IHByb2plY3RzPV9fTUFUU19fO2xldCBzdWJzPV9fU1VCU19fO2xldCBmbG9v",
-    "clBsYW5zPV9fRkxPT1JfXztsZXQgY3VycmVudFByb2plY3Q9IkZpdHRlZCBLaXRjaGVuICgzbSB4",
-    "IDNtKSI7bGV0IG1hdGVyaWFscz1wcm9qZWN0c1tjdXJyZW50UHJvamVjdF07bGV0IGxlZnRNYXRl",
-    "cmlhbHM9W107bGV0IHdvcmtzcGFjZT1udWxsO2xldCBjdXJyZW50Rmxvb3JQbGFuPW51bGw7ZnVu",
-    "Y3Rpb24gc2hvd1NjcmVlbihpZCl7ZG9jdW1lbnQucXVlcnlTZWxlY3RvckFsbCgiLnNjcmVlbiIp",
-    "LmZvckVhY2goZnVuY3Rpb24ocyl7cy5jbGFzc0xpc3QucmVtb3ZlKCJhY3RpdmUiKTt9KTtkb2N1",
-    "bWVudC5nZXRFbGVtZW50QnlJZCgic2NyZWVuLSIraWQpLmNsYXNzTGlzdC5hZGQoImFjdGl2ZSIp",
-    "O2xldCBuYXY9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoIm5hdi0iK2lkKTtpZihuYXYpe25hdi5j",
-    "bGFzc0xpc3QuYWRkKCJuYXYtYWN0aXZlIik7fXdpbmRvdy5zY3JvbGxUbygxLDMpO2lmKGlkPT09",
-    "IndvcmtzcGFjZSIpe3JlbmRlclByb2plY3RzKCk7cmVuZGVyRmxvb3JQbGFucygpO31pZihpZD09",
-    "PSJzdWJzY3JpYmUiKXtyZW5kZXJTdWJzKCk7fX1mdW5jdGlvbiByZW5kZXJTdWJzKCl7bGV0IGh0",
-    "bWw9IiI7T2JqZWN0LmVudHJpZXMoc3VicykuZm9yRWFjaChmdW5jdGlvbihlKXtsZXQgbmFtZT1l",
-    "WzBdO2xldCBkPWVbMV07aHRtbCs9IjxkaXYgY2xhc3M9XCJnbGFzcyByb3VuZGVkLTJ4bCBwLTQg",
-    "Ym9yZGVyLTIgIisoZC5wb3B1bGFyPyJib3JkZXItWzViN2NmZl0vNTAiOmQuYmVzdD8iYm9yZGVy",
-    "LXllbGxvdy00MDAvNTAiOiJib3JkZXItd2hpdGUvMTAiKSsiXCI+PGRpdiBjbGFzcz1cImZsZXgg",
-    "anVzdGlmeS1iZXR3ZWVuXCI+PGRpdj48ZGl2IGNsYXNzPVwiZm9udC1ibGFja1wiPiIrbmFtZSsi",
-    "PC9kaXY+PGRpdiBjbGFzcz1cInRleHQtMnhsIGZvbnQtYmxhY2sgbXQtMVwiPiQiK2QucHJpY2Ur",
-    "Ii9tb250aDwvZGl2PjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9XCJtdC0zIHNwYWNlLXktMVwiPiI7",
-    "ZC5mZWF0dXJlcy5mb3JFYWNoKGZ1bmN0aW9uKGYpe2h0bWwrPSIkZGl2IGNsYXNzPVwiZmxleCBn",
-    "YXAtMiB0ZXh0LVsxMXB4XVwiPjxkaXYgY2xhc3M9XCJ0ZXh0LWdyZWVuLTQwMFwiPnY8L2Rpdj48",
-    "ZGl2PiIrZisiPC9kaXY+PC9kaXY+Ijt9KTtodG1sKz0iPC9kaXY+PC9kaXY+Ijt9KTtkb2N1bWVu",
-    "dC5nZXRFbGVtZW50QnlJZCgic3Vic0xpc3QiKS5pbm5lckhUTUw9aHRtbDt9ZnVuY3Rpb24gcmVu",
-    "ZGVyRmxvb3JQbGFucygpe2xldCBodG1sPSIiO09iamVjdC5lbnRyaWVzKGZsb29yUGxhbnMpLmZv",
-    "ckVhY2goZnVuY3Rpb24oZSl7bGV0IG5hbWU9ZVswXTtsZXQgZD1lWzFdO2h0bWwrPSI8ZGl2IGRhdGEt",
-    "bj1cIiIrbmFtZSsiXCIgb25jbGljaz1cIm9wZW5GbG9vclBsYW4odGhpcy5kYXRhc2V0Lm4pXCIg",
-    "Y2xhc3M9XCJnbGFzcyByb3VuZGVkLTJ4bCBwLTQgY3Vyc29yLXBvaW50ZXJcIj48ZGl2IGNsYXNz",
-    "PVwiZmxleCBqdXN0aWZ5LWJldHdlZW5cIj48ZGl2PjxkaXYgY2xhc3M9XCJmb250LWJsYWNrXCIi",
-    "K25hbWUrIjwvaZGl2PjxkaXYgY2xhc3M9XCJ0ZXh0LVsxMXB4XSB0ZXh0LXdoaXRlLzUwXCIiK2Qu",
-    "ZGVzYyArIjwvaZGl2PjwvZGl2PjxkaXYgY2xhc3M9XCJmb250LWJsYWNrIHRleHQtWzViN2NmZl1c",
-    "Ij4kIitkLnByaWNlKyI8L2Rpdj48L2Rpdj48L2Rpdj4iO30pO2RvY3VtZW50LmdldEVsZW1lbnRC",
-    "eUlkKCJmbG9vclBsYW5zTGlzdCIpLmlubmVySFRNTD1odG1sO31mdW5jdGlvbiByZW5kZXJQcm9q",
-    "ZWN0cygpe2xldCBodG1sPSIiO09iamVjdC5lbnRyaWVzKHByb2plY3RzKS5mb3JFYWNoKGZ1bmN0",
-    "aW9uKGUpe2xldCBuYW1lPWVbMF07bGV0IGQ9ZVsxXTtsZXQgdG90YWw9ZC5pdGVtcy5yZWR1Y2Uo",
-    "ZnVuY3Rpb24ocyxpKXtyZXR1cm4gcytrLnByaWNlKmkubmVlZDt9LDApO2h0bWwrPSI8ZGl2IGRh",
-    "dGEtbj1cIiIrbmFtZSsiXCIgb25jbGljaz1cIm9wZW5Qcm9qZWN0KHRoaXMuZGF0YXNldC5uKVwi",
-    "IGNsYXNzPVwiZ2xhc3Mgcm91bmRlZC0yeGwgcC00IGN1cnNvci1wb2ludGVyXCI+PGRpdiBjbGFz",
-    "cz1cImZsZXgganVzdGlmeS1iZXR3ZWVuXCI+PGRpdj48ZGl2IGNsYXNzPVwiZm9udC1ibGFja1wi",
-    "IituYW1lKyI8L2Rpdj48ZGl2IGNsYXNzPSJcInRleHQtWzExcHhdIHRleHQtd2hpdGUvNTBcIj4i",
-    "K2QuZGVzYyArIiAtICIrdC5pdGVtcy5sZW5ndGgrIiBpdGVtczwvZGl2PjwvZGl2PjxkaXYgY2xh",
-    "c3M9XCJmb250LWJsYWNrIHRleHQtWzViN2NmZl1cIj4kIit0b3RhbC50b0ZpeGVkKDApKyI8L2Rp",
-    "dj48L2Rpdj48L2Rpdj4iO30pO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJwcm9qZWN0c0xpc3Qi",
-    "KS5pbm5lckhUTUw9aHRtbDt9ZnVuY3Rpb24gb3BlbkZsb29yUGxhbihuYW1lKXtsZXQgZnA9Zmxv",
-    "b3JQbGFuc1tuYW1lXTtpZighZnApe3JldHVybjt9Y3VycmVudEZsb29yUGxhbj1mcDtjdXJyZW50",
-    "UHJvamVjdD1uYW1lO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJtYXRlcmlhbHNQcm9qZWN0TmFt",
-    "ZSIpLmlubmVyVGV4dD1uYW1lO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJtYXRlcmlhbHNQcm9q",
-    "ZWN0VGl0bGUiKS5pbm5lclRleHQ9bmFtZSsiIC0gJCIrZnAucHJpY2U7ZG9jdW1lbnQuZ2V0RWxl",
-    "bWVudEJ5SWQoImZsb29yUGxhbkRyYXdpbmciKS5jbGFzc0xpc3QucmVtb3ZlKCJoaWRkZW4iKTtk",
-    "b2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZmxvb3JQbGFuVGl0bGUiKS5pbm5lclRleHQ9bmFtZSsi",
-    "IC0gJCIrZnAucHJpY2U7ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoImZsb29yUGxhblJvb21zIiku",
-    "aW5uZXJIVE1MPWZwLnJvb21zLm1hcChmdW5jdGlvbihyLGkpe3JldHVybiAiPGRpdj4iKyhpKzEp",
-    "KyIuICIrcisiPC9kaXY+Ijt9KS5qb2luKCIiKTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZmxv",
-    "b3JQbGFuSW5jbHVkZXMiKS5pbm5lclRleHQ9ZnAuZGVzYzt7bGV0IHJvb2ZNYXRzPXByb2plY3Rz",
-    "W2ZwLnJvb2ZdP3Byb2plY3RzW2ZwLnJvb2ZdLml0ZW1zLnNsaWNlKDAsMyk6W107bGV0IGNlaWxN",
-    "YXRzPXByb2plY3RzW2ZwLmNlaWxpbmddP3Byb2plY3RzW2ZwLmNlaWxpbmddLml0ZW1zLnNsaWNl",
-    "KDAsMik6W107bWF0ZXJpYWxzPXtpdGVtczpbXS5jb25jYXQocm9vZk1hdHMpLmNvbmNhdChjZWls",
-    "TWF0cykuY29uY2F0KFt7bmFtZToiRmxvb3IgUGxhbiAiK25hbWUsc3BlYzpmcC5yb29tcy5qb2lu",
-    "KCIsICIpLHByaWNlOmZwLnByaWNlLG5lZWQ6MSx1bml0OiJQbGFuIixzdXBwbGllcjoiS2FpIFN1",
-    "cGVyc29uaWMifV0pfTtzaG93U2NyZWVuKCJtYXRlcmlhbHMiKTt9ZnVuY3Rpb24gb3BlblByb2pl",
-    "Y3QobmFtZSl7bGV0IHByb2o9cHJvamVjdHNbbmFtZV07aWYoIXByb2ope3JldHVybjt9Y3VycmVudFBy",
-    "b2plY3Q9bmFtZTttYXRlcmlhbHM9cHJvajtjdXJyZW50Rmxvb3JQbGFuPW51bGw7ZG9jdW1lbnQu",
-    "Z2V0RWxlbWVudEJ5SWQoImZsb29yUGxhbkRyYXdpbmciKS5jbGFzc0xpc3QuYWRkKCJoaWRkZW4i",
-    "KTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibWF0ZXJpYWxzUHJvamVjdE5hbWUiKS5pbm5lclRl",
-    "eHQ9bmFtZTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgibWF0ZXJpYWxzUHJvamVjdFRpdGxlIiku",
-    "aW5uZXJUZXh0PW5hbWU7ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoIm1hdGVyaWFsc1dvcmtzcGFj",
-    "ZUlkIikuaW5uZXJUZXh0PXdvcmtzcGFjZT93b3Jrc3BhY2UuaWQ6IldTLUE3SzkiO2RvY3VtZW50",
-    "LmdldEVsZW1lbnRCeUlkKCJjbGllbnRQcm9qZWN0RGV0YWlscyIpLnZhbHVlPW5hbWU7c2hvd1Nj",
-    "cmVlbigibWF0ZXJpYWxzIik7fWZ1bmN0aW9uIGNyZWF0ZUlEKCl7bGV0IG5hbWU9ZG9jdW1lbnQu",
-    "Z2V0RWxlbWVudEJ5SWQoInROYW1lIikudmFsdWV8fCJUaW5hc2hlIE1veW8iO2xldCB0cmFkZT1k",
-    "b2N1bWVudC5nZXRFbGVtZW50QnlJZCgidFRyYWRlTWFpbiIpLnZhbHVlfHwiRml0dGVkIEtpdGNo",
-    "ZW5zIjtsZXQgd3NJZD0iV1MtIitNYXRoLnJhbmRvbSgpLnRvU3RyaW5nKDM2KS5zdWJzdHIoMiw0",
-    "KS50b1VwcGVyQ2FzZSgpO3dvcmtzcGFjZT17aWQ6d3NJZCx0cmFkZTp0cmFkZSxvd25lcjpuYW1l",
-    "fTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiaWROYW1lIikuaW5uZXJUZXh0PW5hbWU7ZG9jdW1l",
-    "bnQuZ2V0RWxlbWVudEJ5SWQoImlkVHJhZGUiKS5pbm5lclRleHQ9dHJhZGU7ZG9jdW1lbnQuZ2V0",
-    "RWxlbWVudEJ5SWQoImlkTnVtYmVyIikuaW5uZXJUZXh0PXdzSWQ7ZG9jdW1lbnQuZ2V0RWxlbWVu",
-    "dEJ5SWQoIndzVHJhZG
+HTML_PARTS = []
+HTML_PARTS.append('<!DOCTYPE html><html><head>')
+HTML_PARTS.append('<meta charset="UTF-8">')
+HTML_PARTS.append('<meta name="viewport" content="width=device-width">')
+HTML_PARTS.append('<title>ANREVAZ SUPERSONIC QUOTE Kai AI</title>')
+HTML_PARTS.append('<script src="https://cdn.tailwindcss.com"></script>')
+HTML_PARTS.append('<style>.screen{display:none}')
+HTML_PARTS.append('.screen.active{display:block}')
+HTML_PARTS.append('.nav-active{background:#5b7cff!important}')
+HTML_PARTS.append('.glass{background:rgba(255,255,255,0.06)}')
+HTML_PARTS.append('</style></head>')
+HTML_PARTS.append('<body style="background:#0a0e26;color:white">')
+HTML_PARTS.append('<div class="max-w-[560px] mx-auto pb-28">')
+HTML_PARTS.append('<div id="screen-landing" class="screen active px-5 py-6">')
+HTML_PARTS.append('<div class="flex justify-between items-center">')
+HTML_PARTS.append('<div class="flex gap-2 items-center">')
+HTML_PARTS.append('<div class="w-9 h-9 rounded-xl bg-[#5b7cff]">A</div>')
+HTML_PARTS.append('<div class="font-black">ANREVAZ OS</div></div>')
+HTML_PARTS.append('<div class="bg-[#5b7cff]/30 px-3 py-1 rounded-full text-[10px]">PREMIUM</div>')
+HTML_PARTS.append('</div>')
+HTML_PARTS.append('<div class="mt-8">')
+HTML_PARTS.append('<div class="font-black text-3xl">Any Trade Quote in 3 sec</div>')
+HTML_PARTS.append('<div class="font-black text-3xl text-[#5b7cff]">AI Follow-up Wins The Job</div>')
+HTML_PARTS.append('</div>')
+HTML_PARTS.append('<div class="mt-8 grid grid-cols-5 gap-2">')
+HTML_PARTS.append('<div class="glass rounded-2xl p-3 text-center">Carpenter</div>')
+HTML_PARTS.append('<div class="glass rounded-2xl p-3 text-center">Welder</div>')
+HTML_PARTS.append('<div class="glass rounded-2xl p-3 text-center">Builder</div>')
+HTML_PARTS.append('<div class="glass rounded-2xl p-3 text-center">Plumber</div>')
+HTML_PARTS.append('<div class="glass rounded-2xl p-3 text-center">Glazier</div>')
+HTML_PARTS.append('</div>')
+HTML_PARTS.append('<div class="mt-8"><div class="font-bold">AI auto followup timeline</div>')
+HTML_PARTS.append('<div class="mt-3 glass rounded-2xl p-5">')
+HTML_PARTS.append('<div class="flex justify-between">')
+HTML_PARTS.append('<div class="text-center"><div class="w-8 h-8 rounded-full bg-[#5b7cff]">v</div>')
+HTML_PARTS.append('<div class="text-[10px]">0 sec quote</div></div>')
+HTML_PARTS.append('<div class="text-center"><div class="w-6 h-6 rounded-full border">')
+HTML_PARTS.append('</div><div class="text-[10px]">2h</div></div>')
+HTML_PARTS.append('<div class="text-center"><div class="w-6 h-6 rounded-full border">')
+HTML_PARTS.append('</div><div class="text-[10px]">24h</div></div>')
+HTML_PARTS.append('<div class="text-center"><div class="w-6 h-6 rounded-full border">')
+HTML_PARTS.append('</div><div class="text-[10px]">day 3</div></div>')
+HTML_PARTS.append('<div class="text-center"><div class="w-6 h-6 rounded-full border">')
+HTML_PARTS.append('</div><div class="text-[10px]">day 7</div></div>')
+HTML_PARTS.append('</div></div></div>')
+HTML_PARTS.append('<div class="mt-6 grid grid-cols-2 gap-3">')
+HTML_PARTS.append('<div class="glass rounded-2xl p-4 text-center">')
+HTML_PARTS.append('<div>WhatsApp</div><div class="font-black">0783788376</div></div>')
+HTML_PARTS.append('<div class="glass rounded-2xl p-4 text-center">')
+HTML_PARTS.append('<div>EcoCash</div><div class="font-black">0772590884</div></div>')
+HTML_PARTS.append('</div>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;register&quot;)"')
+HTML_PARTS.append('class="w-full mt-6 bg-[#5b7cff] py-4 rounded-xl font-black">')
+HTML_PARTS.append('Get Instant Quote Now</button></div>')
+HTML_PARTS.append('<div id="screen-register" class="screen px-5 py-6">')
+HTML_PARTS.append('<div class="font-black">Create Account - System Pass ANR-KD-XXXX</div>')
+HTML_PARTS.append('<div class="mt-4 space-y-3">')
+HTML_PARTS.append('<input id="tName" placeholder="Full Name"')
+HTML_PARTS.append('class="w-full px-4 py-3 rounded-xl text-sm text-black">')
+HTML_PARTS.append('<select id="tTradeMain"')
+HTML_PARTS.append('class="w-full px-4 py-3 rounded-xl text-sm text-black">')
+HTML_PARTS.append('<option>Carpenter</option><option>Builder</option>')
+HTML_PARTS.append('<option>Welder</option><option>Plumber</option>')
+HTML_PARTS.append('<option>Electrician</option><option>Glazier</option>')
+HTML_PARTS.append('<option>Floor Plan 127sqm $3627</option></select>')
+HTML_PARTS.append('<input id="tPhone" placeholder="Phone 0772590884"')
+HTML_PARTS.append('class="w-full px-4 py-3 rounded-xl text-sm text-black">')
+HTML_PARTS.append('<input id="tLocation" placeholder="Location Kadoma CBD"')
+HTML_PARTS.append('class="w-full px-4 py-3 rounded-xl text-sm text-black">')
+HTML_PARTS.append('<input id="tYears" type="number" placeholder="Years 8"')
+HTML_PARTS.append('class="w-full px-4 py-3 rounded-xl text-sm text-black">')
+HTML_PARTS.append('<input id="tIdNumber" placeholder="National ID"')
+HTML_PARTS.append('class="w-full px-4 py-3 rounded-xl text-sm text-black">')
+HTML_PARTS.append('<button onclick="createID()"')
+HTML_PARTS.append('class="w-full bg-[#5b7cff] py-4 rounded-xl font-black">')
+HTML_PARTS.append('Create My System Pass + Private Workspace</button>')
+HTML_PARTS.append('</div></div>')
+HTML_PARTS.append('<div id="screen-workspace" class="screen px-5 py-6">')
+HTML_PARTS.append('<div class="font-black">My Private Workspace - Online Web Only</div>')
+HTML_PARTS.append('<div id="idCard" class="mt-4 bg-[#1e2a6b] border rounded-2xl p-4">')
+HTML_PARTS.append('<div id="idName" class="font-black">Tinashe Moyo</div>')
+HTML_PARTS.append('<div id="idTrade" class="text-[#5b7cff] text-xs">Fitted Kitchens</div>')
+HTML_PARTS.append('<div id="workspaceBadge" class="mt-1 bg-green-500/20 text-[9px]">')
+HTML_PARTS.append('WS-XXXX PRIVATE ONLINE WEB ONLY</div>')
+HTML_PARTS.append('<div class="mt-2">Workspace: <span id="idNumber">WS-A7K9</span>')
+HTML_PARTS.append('- <span id="wsTradeName">Fitted Kitchens ONLY</span></div></div>')
+HTML_PARTS.append('<div class="mt-4"><div class="font-black">Select Trade</div>')
+HTML_PARTS.append('<div id="projectsList" class="mt-2 space-y-2"></div></div>')
+HTML_PARTS.append('<div class="mt-4"><div class="font-black">Floor Plans</div>')
+HTML_PARTS.append('<div id="floorPlansList" class="mt-2 space-y-2"></div></div>')
+HTML_PARTS.append('<div class="mt-4 glass rounded-2xl p-4">')
+HTML_PARTS.append('<div class="font-black text-sm">Online Artisans - Web Only</div>')
+HTML_PARTS.append('<div id="onlineList" class="mt-2">')
+HTML_PARTS.append('<div class="flex justify-between bg-white/5 p-2 rounded-lg">')
+HTML_PARTS.append('<span>Tinashe Moyo - Carpenter</span>')
+HTML_PARTS.append('<span class="text-green-400">Online - Web Only</span></div>')
+HTML_PARTS.append('<div class="flex justify-between bg-white/5 p-2 rounded-lg">')
+HTML_PARTS.append('<span>Blessed - Builder</span>')
+HTML_PARTS.append('<span class="text-green-400">Online - Web Only</span></div>')
+HTML_PARTS.append('</div></div></div>')
+HTML_PARTS.append('<div id="screen-materials" class="screen px-5 py-6">')
+HTML_PARTS.append('<div class="font-black">Workspace Materials - Per Unit</div>')
+HTML_PARTS.append('<div class="mt-2"><span id="materialsProjectName">Kitchen</span>')
+HTML_PARTS.append('- <span id="materialsWorkspaceId">WS-A7K9</span></div>')
+HTML_PARTS.append('<div class="mt-4"><div class="flex justify-between">')
+HTML_PARTS.append('<div class="font-black">Materials Per Unit - Add Remove</div>')
+HTML_PARTS.append('<button onclick="addCustomMaterial()"')
+HTML_PARTS.append('class="bg-[#5b7cff] px-3 py-1 rounded-full text-[11px]">')
+HTML_PARTS.append('+ Add Material</button></div>')
+HTML_PARTS.append('<div class="mt-2 bg-black/40 border rounded-xl overflow-hidden">')
+HTML_PARTS.append('<div class="grid grid-cols-12 gap-2 bg-white/10 p-2 text-[9px] font-bold">')
+HTML_PARTS.append('<div class="col-span-4">Material</div>')
+HTML_PARTS.append('<div class="col-span-2 text-center">Qty Unit</div>')
+HTML_PARTS.append('<div class="col-span-2 text-right">Price Editable</div>')
+HTML_PARTS.append('<div class="col-span-2 text-right">Total</div>')
+HTML_PARTS.append('<div class="col-span-2 text-center">Action</div>')
+HTML_PARTS.append('</div><div id="materialsDetailedList"></div></div></div>')
+HTML_PARTS.append('<div class="mt-4 glass rounded-2xl p-4">')
+HTML_PARTS.append('<div class="font-black text-sm">Left / Excess - Add Remove</div>')
+HTML_PARTS.append('<div class="mt-3 flex gap-2">')
+HTML_PARTS.append('<input id="leftMaterialName" placeholder="Left Material"')
+HTML_PARTS.append('class="flex-1 px-3 py-2 rounded-lg text-sm text-black">')
+HTML_PARTS.append('<input id="leftMaterialQty" type="number" placeholder="Qty"')
+HTML_PARTS.append('class="w-20 px-3 py-2 rounded-lg text-sm text-black">')
+HTML_PARTS.append('<button onclick="addLeftMaterial()"')
+HTML_PARTS.append('class="bg-white/10 border px-3 py-2 rounded-lg text-[11px]">')
+HTML_PARTS.append('Add Left</button></div>')
+HTML_PARTS.append('<div id="leftMaterialsList" class="mt-3 space-y-1 text-[11px]"></div>')
+HTML_PARTS.append('</div>')
+HTML_PARTS.append('<div class="mt-4 glass rounded-2xl p-4">')
+HTML_PARTS.append('<input id="clientName" placeholder="Client Full Name"')
+HTML_PARTS.append('class="w-full px-3 py-2 rounded-lg text-sm text-black">')
+HTML_PARTS.append('<input id="clientPhone" placeholder="Client Phone"')
+HTML_PARTS.append('class="w-full px-3 py-2 rounded-lg text-sm text-black mt-2">')
+HTML_PARTS.append('<input id="clientAddress" placeholder="Address"')
+HTML_PARTS.append('class="w-full px-3 py-2 rounded-lg text-sm text-black mt-2">')
+HTML_PARTS.append('<input id="cName" placeholder="Company Name"')
+HTML_PARTS.append('class="w-full px-3 py-2 rounded-lg text-sm text-black mt-2">')
+HTML_PARTS.append('</div>')
+HTML_PARTS.append('<div class="mt-4 glass rounded-2xl p-4 border border-[#5b7cff]/30">')
+HTML_PARTS.append('<div class="flex justify-between text-sm">')
+HTML_PARTS.append('<span>Materials Editable Per Unit:</span>')
+HTML_PARTS.append('<span id="matTotal">$0</span></div>')
+HTML_PARTS.append('<div class="flex justify-between text-sm">')
+HTML_PARTS.append('<span>Labour 30% $650 Floor:</span>')
+HTML_PARTS.append('<span id="laborTotal">$0</span></div>')
+HTML_PARTS.append('<div class="flex justify-between text-sm"><span>Transport: $</span>')
+HTML_PARTS.append('<input id="transport" type="number" value="30"')
+HTML_PARTS.append('class="w-20 px-2 py-1 rounded-lg text-black text-sm"')
+HTML_PARTS.append('oninput="calcTotal()"></div>')
+HTML_PARTS.append('<div class="flex justify-between text-sm">')
+HTML_PARTS.append('<span>Left / Excess:</span><span id="leftTotal">$0</span></div>')
+HTML_PARTS.append('<div class="flex justify-between font-black text-lg mt-3 pt-3">')
+HTML_PARTS.append('<span>Total:</span>')
+HTML_PARTS.append('<span id="grandTotal" class="text-[#5b7cff]">$0</span></div>')
+HTML_PARTS.append('</div>')
+HTML_PARTS.append('<button onclick="generateQuote()"')
+HTML_PARTS.append('class="w-full mt-4 bg-[#5b7cff] py-3 rounded-xl font-black">')
+HTML_PARTS.append('Generate Professional Quote + Print</button></div>')
+HTML_PARTS.append('<div id="screen-preview" class="screen px-5 py-6">')
+HTML_PARTS.append('<div class="font-black">Professional Quotation - Supersonic Quote Kai AI</div>')
+HTML_PARTS.append('<div class="mt-4 bg-white text-black rounded-2xl p-5">')
+HTML_PARTS.append('<div class="flex justify-between border-b pb-3">')
+HTML_PARTS.append('<div><div id="previewCompany" class="font-black">Moyo Carpentry</div>')
+HTML_PARTS.append('<div id="previewCompanyAddress" class="text-[9px] text-gray-500">')
+HTML_PARTS.append('1234 Rimuka Kadoma 0772590884</div></div>')
+HTML_PARTS.append('<div class="text-right">')
+HTML_PARTS.append('<div class="font-black text-[#5b7cff] text-xs">SUPERSONIC QUOTE</div>')
+HTML_PARTS.append('<div id="quoteNumber" class="text-[10px]">#WS-A7K9</div>')
+HTML_PARTS.append('<div id="quoteDate" class="text-[9px] text-gray-500">29 Oct 2026</div>')
+HTML_PARTS.append('</div></div>')
+HTML_PARTS.append('<div class="mt-3"><div id="previewTradesman" class="text-[10px]">')
+HTML_PARTS.append('Name Trade Workspace ANR-KD Verified</div>')
+HTML_PARTS.append('<div id="previewClient" class="text-[10px] mt-2">')
+HTML_PARTS.append('Client Floor Plan $3627</div></div>')
+HTML_PARTS.append('<div class="mt-3"><div id="previewMaterials" class="text-[8px]"></div>')
+HTML_PARTS.append('<div id="previewLeft" class="mt-2 text-[8px]"></div></div>')
+HTML_PARTS.append('<div class="mt-3 bg-gray-50 rounded-xl p-2.5 text-[10px]">')
+HTML_PARTS.append('<span id="previewGrand" class="text-[#5b7cff] font-black">$0</span>')
+HTML_PARTS.append('</div></div>')
+HTML_PARTS.append('<div class="mt-4 grid grid-cols-2 gap-3">')
+HTML_PARTS.append('<button onclick="window.print()"')
+HTML_PARTS.append('class="bg-[#5b7cff] py-3 rounded-xl font-bold text-xs">')
+HTML_PARTS.append('Download PDF</button>')
+HTML_PARTS.append('<a id="waLink1" href="whatsapp://send?phone=263783788376"')
+HTML_PARTS.append('class="bg-[#25D366] py-3 rounded-xl font-bold text-xs text-center">')
+HTML_PARTS.append('WhatsApp Kai</a></div>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;ai&quot;)"')
+HTML_PARTS.append('class="w-full mt-3 bg-[#5b7cff]/20 border py-2.5 rounded-xl font-bold text-xs">')
+HTML_PARTS.append('Next: Kai AI Follow-up Till WON</button></div>')
+HTML_PARTS.append('<div id="screen-ai" class="screen px-5 py-6">')
+HTML_PARTS.append('<div class="font-black">Kai AI - Follow-up Wins The Job</div>')
+HTML_PARTS.append('<div class="mt-5 bg-white/5 border rounded-2xl p-3">')
+HTML_PARTS.append('<div class="h-[380px] flex flex-col">')
+HTML_PARTS.append('<div id="aiChat" class="flex-1 overflow-y-auto space-y-2 text-[11px]">')
+HTML_PARTS.append('<div class="bg-[#5b7cff]/20 border rounded-xl p-3">')
+HTML_PARTS.append('<div class="font-bold">Kai AI Ready - Private</div>')
+HTML_PARTS.append('<div class="text-[10px] mt-1">Workspace')
+HTML_PARTS.append('<span id="aiWorkspaceId">WS-A7K9</span> + Floor Plan $3627</div>')
+HTML_PARTS.append('<div class="text-[10px] text-white/60 mt-1">')
+HTML_PARTS.append('I am Kai - Only sees YOUR private workspace</div>')
+HTML_PARTS.append('<div class="text-[10px] text-white/60">')
+HTML_PARTS.append('No other tradesman data - Negotiates if expensive</div>')
+HTML_PARTS.append('<div class="text-[10px] text-white/60">')
+HTML_PARTS.append('Follow-up timeline 0 sec 2h 24h day3 day7 till WON</div>')
+HTML_PARTS.append('</div></div>')
+HTML_PARTS.append('<div class="mt-3 flex gap-2">')
+HTML_PARTS.append('<input id="aiInput" placeholder="Ask Kai - too expensive"')
+HTML_PARTS.append('class="flex-1 bg-white/10 border rounded-full px-4 py-2.5 text-xs">')
+HTML_PARTS.append('<button onclick="sendAI()"')
+HTML_PARTS.append('class="bg-[#5b7cff] px-4 py-2.5 rounded-full font-bold text-xs">')
+HTML_PARTS.append('Ask Kai</button></div></div></div>')
+HTML_PARTS.append('<div class="mt-3 grid grid-cols-3 gap-2">')
+HTML_PARTS.append('<button onclick="quickAI(&quot;too expensive&quot;)"')
+HTML_PARTS.append('class="bg-white/10 border py-2 rounded-xl text-[10px]">')
+HTML_PARTS.append('Kai: Too Expensive</button>')
+HTML_PARTS.append('<button onclick="quickAI(&quot;follow up&quot;)"')
+HTML_PARTS.append('class="bg-white/10 border py-2 rounded-xl text-[10px]">')
+HTML_PARTS.append('Kai: Follow-up Till WON</button>')
+HTML_PARTS.append('<button onclick="quickAI(&quot;won&quot;)"')
+HTML_PARTS.append('class="bg-green-500/20 border py-2 rounded-xl text-[10px]">')
+HTML_PARTS.append('Kai: Won + Invoice</button></div>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;subscribe&quot;)"')
+HTML_PARTS.append('class="w-full mt-4 bg-yellow-400 text-black py-3 rounded-xl font-black">')
+HTML_PARTS.append('Next: Subscribe Packages $3 $7 $12</button></div>')
+HTML_PARTS.append('<div id="screen-subscribe" class="screen px-5 py-6">')
+HTML_PARTS.append('<div class="font-black">Packages - Different Subscriptions</div>')
+HTML_PARTS.append('<div class="mt-5 space-y-4" id="subsList"></div>')
+HTML_PARTS.append('<div class="mt-5 text-center"><div class="grid grid-cols-1 gap-2">')
+HTML_PARTS.append('<a href="whatsapp://send?phone=263783788376"')
+HTML_PARTS.append('class="bg-[#25D366] py-3 rounded-xl font-bold text-sm block">')
+HTML_PARTS.append('whatsapp://send?phone=263783788376 - No Data Needed</a>')
+HTML_PARTS.append('<a href="https://wa.me/263783788376"')
+HTML_PARTS.append('class="bg-white/10 border py-3 rounded-xl font-bold text-sm block">')
+HTML_PARTS.append('https://wa.me/263783788376 - Alternative</a>')
+HTML_PARTS.append('</div></div></div></div>')
+HTML_PARTS.append('<div class="fixed bottom-0 left-0 right-0 bg-black/90 border-t">')
+HTML_PARTS.append('<div class="max-w-[560px] mx-auto grid grid-cols-6 text-center text-[8px] py-2 gap-1">')
+HTML_PARTS.append('<button onclick="showScreen(&quot;landing&quot;)" id="nav-landing"')
+HTML_PARTS.append('class="nav-active py-1.5 rounded-lg">Home<br>Supersonic</button>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;register&quot;)" id="nav-register"')
+HTML_PARTS.append('class="text-white/40 py-1.5">System Pass<br>Full Profile</button>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;workspace&quot;)" id="nav-workspace"')
+HTML_PARTS.append('class="text-white/40 py-1.5">Trade<br>Workspace Online</button>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;materials&quot;)" id="nav-materials"')
+HTML_PARTS.append('class="text-white/40 py-1.5">Materials<br>Per Unit Manual</button>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;preview&quot;)" id="nav-preview"')
+HTML_PARTS.append('class="text-white/40 py-1.5">Quote<br>Supersonic Print</button>')
+HTML_PARTS.append('<button onclick="showScreen(&quot;ai&quot;)" id="nav-ai"')
+HTML_PARTS.append('class="text-white/40 py-1.5">Kai AI<br>Till WON</button>')
+HTML_PARTS.append('</div></div>')
+HTML_PARTS.append('<script>')
+HTML_PARTS.append('let projects = __MATS__;')
+HTML_PARTS.append('let subs = __SUBS__;')
+HTML_PARTS.append('let floorPlans = __FLOOR__;')
+HTML_PARTS.append('let curProject = "Fitted Kitchen (3m x 3m)";')
+HTML_PARTS.append('let materials = projects[curProject];')
+HTML_PARTS.append('let leftMaterials = [];')
+HTML_PARTS.append('let workspace = null;')
+HTML_PARTS.append('let curFloorPlan = null;')
+HTML_PARTS.append('function showScreen(id){')
+HTML_PARTS.append('document.querySelectorAll(".screen").forEach(function(s){')
+HTML_PARTS.append('s.classList.remove("active");});')
+HTML_PARTS.append('document.getElementById("screen-"+id).classList.add("active");')
+HTML_PARTS.append('let nav=document.getElementById("nav-"+id);')
+HTML_PARTS.append('if(nav){nav.classList.add("nav-active");}')
+HTML_PARTS.append('window.scrollTo(0,0);')
+HTML_PARTS.append('if(id==="workspace"){renderProjects();renderFloorPlans();}')
+HTML_PARTS.append('if(id==="subscribe"){renderSubs();}}')
+HTML_PARTS.append('function renderSubs(){let html="";')
+HTML_PARTS.append('Object.entries(subs).forEach(function(e){')
+HTML_PARTS.append('let name=e[0];let d=e[1];')
+HTML_PARTS.append('html+="<div class=\\"glass rounded-2xl p-4 border-2\\">";')
+HTML_PARTS.append('html+="<div class=\\"flex justify-between\\"><div>";')
+HTML_PARTS.append('html+="<div class=\\"font-black\\">"+name+"</div>";')
+HTML_PARTS.append('html+="<div class=\\"text-2xl font-black mt-1\\">$"+d.price+"/month</div>";')
+HTML_PARTS.append('html+="</div></div><div class=\\"mt-3 space-y-1\\">";')
+HTML_PARTS.append('d.features.forEach(function(f){')
+HTML_PARTS.append('html+="<div class=\\"flex gap-2 text-[11px]\\">"+f+"</div>";});')
+HTML_PARTS.append('html+="</div></div>";});')
+HTML_PARTS.append('document.getElementById("subsList").innerHTML=html;}')
+HTML_PARTS.append('function renderFloorPlans(){let html="";')
+HTML_PARTS.append('Object.entries(floorPlans).forEach(function(e){')
+HTML_PARTS.append('let name=e[0];let d=e[1];')
+HTML_PARTS.append('html+="<div data-n=\\""+name+"\\" onclick=\\"openFloorPlan(this.dataset.n)\\">";')
+HTML_PARTS.append('html+="<div class=\\"flex justify-between\\"><div>";')
+HTML_PARTS.append('html+="<div class=\\"font-black\\">"+name+"</div>";')
+HTML_PARTS.append('html+="<div class=\\"text-[11px] text-white/50\\">"+d.desc+"</div>";')
+HTML_PARTS.append('html+="</div><div class=\\"font-black text-[#5b7cff]\\">$"+d.price+"</div></div></div>";});')
+HTML_PARTS.append('document.getElementById("floorPlansList").innerHTML=html;}')
+HTML_PARTS.append('function renderProjects(){let html="";')
+HTML_PARTS.append('Object.entries(projects).forEach(function(e){')
+HTML_PARTS.append('let name=e[0];let d=e[1];')
+HTML_PARTS.append('let total=d.items.reduce(function(s,i){return s+i.price*i.need;},0);')
+HTML_PARTS.append('html+="<div data-n=\\""+name+"\\" onclick=\\"openProject(this.dataset.n)\\">";')
+HTML_PARTS.append('html+="<div class=\\"flex justify-between\\"><div>";')
+HTML_PARTS.append('html+="<div class=\\"font-black\\">"+name+"</div>";')
+HTML_PARTS.append('html+="</div><div class=\\"font-black text-[#5b7cff]\\">$"+total.toFixed(0)+"</div></div></div>";});')
+HTML_PARTS.append('document.getElementById("projectsList").innerHTML=html;}')
+HTML_PARTS.append('function openFloorPlan(name){')
+HTML_PARTS.append('let fp=floorPlans[name];if(!fp){return;}')
+HTML_PARTS.append('curFloorPlan=fp;curProject=name;')
+HTML_PARTS.append('document.getElementById("materialsProjectName").innerText=name;')
+HTML_PARTS.append('document.getElementById("floorPlanDrawing").classList.remove("hidden");')
+HTML_PARTS.append('document.getElementById("floorPlanTitle").innerText=name+" - $"+fp.price;')
+HTML_PARTS.append('document.getElementById("floorPlanRooms").innerHTML=fp.rooms.map(function(r,i){')
+HTML_PARTS.append('return "<div>"+(i+1)+". "+r+"</div>";}).join("");')
+HTML_PARTS.append('document.getElementById("floorPlanIncludes").innerText=fp.desc;')
+HTML_PARTS.append('materials={items:[{name:"Floor Plan "+name,price:fp.price,need:1,unit:"Plan"}]};')
+HTML_PARTS.append('showScreen("materials");}')
+HTML_PARTS.append('function openProject(name){')
+HTML_PARTS.append('let proj=projects[name];if(!proj){return;}')
+HTML_PARTS.append('curProject=name;materials=proj;curFloorPlan=null;')
+HTML_PARTS.append('document.getElementById("floorPlanDrawing").classList.add("hidden");')
+HTML_PARTS.append('document.getElementById("materialsProjectName").innerText=name;')
+HTML_PARTS.append('document.getElementById("materialsWorkspaceId").innerText=workspace?workspace.id:"WS-A7K9";')
+HTML_PARTS.append('showScreen("materials");}')
+HTML_PARTS.append('function createID(){')
+HTML_PARTS.append('let name=document.getElementById("tName").value||"Tinashe Moyo";')
+HTML_PARTS.append('let trade=document.getElementById("tTradeMain").value||"Fitted Kitchens";')
+HTML_PARTS.append('let wsId="WS-"+Math.random().toString(36).substr(2,4).toUpperCase();')
+HTML_PARTS.append('workspace={id:wsId,trade:trade,owner:name};')
+HTML_PARTS.append('document.getElementById("idName").innerText=name;')
+HTML_PARTS.append('document.getElementById("idTrade").innerText=trade;')
+HTML_PARTS.append('document.getElementById("idNumber").innerText=wsId;')
+HTML_PARTS.append('document.getElementById("wsTradeName").innerText=trade+" ONLY";')
+HTML_PARTS.append('document.getElementById("workspaceBadge").innerText=wsId+" PRIVATE";')
+HTML_PARTS.append('document.getElementById("aiWorkspaceId").innerText=wsId;')
+HTML_PARTS.append('document.getElementById("quoteNumber").innerText="#"+wsId;')
+HTML_PARTS.append('showScreen("workspace");}')
+HTML_PARTS.append('function renderMaterials(){let html="";')
+HTML_PARTS.append('materials.items.forEach(function(item,idx){')
+HTML_PARTS.append('let total=item.price*item.need;')
+HTML_PARTS.append('html+="<div class=\\"grid grid-cols-12 gap-2 p-3\\">";')
+HTML_PARTS.append('html+="<div class=\\"col-span-4\\"><div class=\\"font-bold text-[11px]\\">"+(idx+1)+". "+item.name+"</div>";')
+HTML_PARTS.append('html+="<div class=\\"text-[9px] text-white/40\\">"+item.spec+"</div></div>";')
+HTML_PARTS.append('html+="<div class=\\"col-span-2 text-center\\">";')
+HTML_PARTS.append('html+="<button onclick=\\"changeQty("+idx+",-1)\\"')
+HTML_PARTS.append('class=\\"w-6 h-6 rounded-full bg-white/10\\">-</button>";')
+HTML_PARTS.append('html+="<span>"+item.need+"</span>";')
+HTML_PARTS.append('html+="<button onclick=\\"changeQty("+idx+",1)\\"')
+HTML_PARTS.append('class=\\"w-6 h-6 rounded-full bg-white/10\\">+</button></div>";')
+HTML_PARTS.append('html+="<div class=\\"col-span-2 text-right\\">";')
+HTML_PARTS.append('html+="<input type=\\"number\\" value=\\""+item.price+"\\"')
+HTML_PARTS.append('oninput=\\"changePrice("+idx+",this.value)\\"')
+HTML_PARTS.append('class=\\"w-16 px-2 py-1 rounded text-black\\">";')
+HTML_PARTS.append('html+="</div><div class=\\"col-span-2 text-right\\">$"+total.toFixed(2)+"</div>";')
+HTML_PARTS.append('html+="<div class=\\"col-span-2 text-center\\">";')
+HTML_PARTS.append('html+="<button onclick=\\"removeMaterial("+idx+")\\"')
+HTML_PARTS.append('class=\\"bg-red-500/20 text-red-300 px-2 py-1 rounded-full\\">Remove</button></div></div>";});')
+HTML_PARTS.append('document.getElementById("materialsDetailedList").innerHTML=html;')
+HTML_PARTS.append('renderLeftMaterials();calcTotal();}')
+HTML_PARTS.append('function changeQty(idx,delta){')
+HTML_PARTS.append('materials.items[idx].need+=delta;')
+HTML_PARTS.append('if(materials.items[idx].need<1){materials.items[idx].need=1;}')
+HTML_PARTS.append('renderMaterials();}')
+HTML_PARTS.append('function changePrice(idx,val){')
+HTML_PARTS.append('materials.items[idx].price=parseFloat(val)||0;')
+HTML_PARTS.append('calcTotal();renderMaterials();}')
+HTML_PARTS.append('function removeMaterial(idx){')
+HTML_PARTS.append('materials.items.splice(idx,1);renderMaterials();}')
+HTML_PARTS.append('function addCustomMaterial(){')
+HTML_PARTS.append('let name=prompt("Material Name?");if(!name){return;}')
+HTML_PARTS.append('let price=parseFloat(prompt("Price Per Unit?"))||0;')
+HTML_PARTS.append('let need=parseFloat(prompt("Qty Needed?"))||1;')
+HTML_PARTS.append('let unit=prompt("Unit?")||"Each";')
+HTML_PARTS.append('materials.items.push({name:name,spec:"Custom",price:price,need:need,unit:unit});')
+HTML_PARTS.append('renderMaterials();}')
+HTML_PARTS.append('function addLeftMaterial(){')
+HTML_PARTS.append('let name=document.getElementById("leftMaterialName").value;')
+HTML_PARTS.append('let qty=parseFloat(document.getElementById("leftMaterialQty").value)||0;')
+HTML_PARTS.append('if(!name||!qty){return;}')
+HTML_PARTS.append('leftMaterials.push({name:name,qty:qty});')
+HTML_PARTS.append('document.getElementById("leftMaterialName").value="";')
+HTML_PARTS.append('document.getElementById("leftMaterialQty").value="";')
+HTML_PARTS.append('renderLeftMaterials();calcTotal();}')
+HTML_PARTS.append('function renderLeftMaterials(){let html="";')
+HTML_PARTS.append('leftMaterials.forEach(function(item,idx){')
+HTML_PARTS.append('html+="<div class=\\"flex justify-between bg-white/5 p-2 rounded-lg\\">";')
+HTML_PARTS.append('html+="<span>"+item.name+" - "+item.qty+"</span>";')
+HTML_PARTS.append('html+="<button onclick=\\"removeLeft("+idx+")\\"')
+HTML_PARTS.append('class=\\"text-red-300\\">Remove</button></div>";});')
+HTML_PARTS.append('document.getElementById("leftMaterialsList").innerHTML=html;}')
+HTML_PARTS.append('function removeLeft(idx){')
+HTML_PARTS.append('leftMaterials.splice(idx,1);')
+HTML_PARTS.append('renderLeftMaterials();calcTotal();}')
+HTML_PARTS.append('function calcTotal(){let mat=0;')
+HTML_PARTS.append('materials.items.forEach(function(i){mat+=i.price*i.need;});')
+HTML_PARTS.append('let labor=mat*0.3;')
+HTML_PARTS.append('let transport=parseFloat(document.getElementById("transport")?')
+HTML_PARTS.append('document.getElementById("transport").value:30)||30;')
+HTML_PARTS.append('let grand=mat+labor+transport;')
+HTML_PARTS.append('document.getElementById("matTotal").innerText="$"+mat.toFixed(2);')
+HTML_PARTS.append('document.getElementById("laborTotal").innerText="$"+labor.toFixed(2);')
+HTML_PARTS.append('document.getElementById("leftTotal").innerText=leftMaterials.length+" items";')
+HTML_PARTS.append('document.getElementById("grandTotal").innerText="$"+grand.toFixed(2);')
+HTML_PARTS.append('return {mat:mat,labor:labor,transport:transport,grand:grand};}')
+HTML_PARTS.append('function generateQuote(){let totals=calcTotal();')
+HTML_PARTS.append('let cName=document.getElementById("cName").value||"Moyo Carpentry";')
+HTML_PARTS.append('let client={name:document.getElementById("clientName").value||"Mrs Chipo"};')
+HTML_PARTS.append('document.getElementById("previewCompany").innerText=cName;')
+HTML_PARTS.append('document.getElementById("previewTradesman").innerHTML=')
+HTML_PARTS.append('(document.getElementById("tName").value||"Tinashe Moyo")+"<br>"+')
+HTML_PARTS.append('(workspace?workspace.trade:curProject)+"<br>Workspace: "+')
+HTML_PARTS.append('(workspace?workspace.id:"WS-A7K9");')
+HTML_PARTS.append('let previewHtml="";')
+HTML_PARTS.append('materials.items.forEach(function(item,i){')
+HTML_PARTS.append('let total=item.price*item.need;')
+HTML_PARTS.append('previewHtml+="<div class=\\"grid grid-cols-12 gap-2 py-2 border-b\\">";')
+HTML_PARTS.append('previewHtml+="<div class=\\"col-span-5\\">"+(i+1)+". "+item.name+"</div>";')
+HTML_PARTS.append('previewHtml+="<div class=\\"col-span-2 text-center\\">"+item.need+"</div>";')
+HTML_PARTS.append('previewHtml+="<div class=\\"col-span-2 text-right\\">$"+item.price.toFixed(2)+"</div>";')
+HTML_PARTS.append('previewHtml+="<div class=\\"col-span-3 text-right\\">$"+total.toFixed(2)+"</div></div>";});')
+HTML_PARTS.append('document.getElementById("previewMaterials").innerHTML=previewHtml;')
+HTML_PARTS.append('document.getElementById("previewGrand").innerText="$"+totals.grand.toFixed(2);')
+HTML_PARTS.append('document.getElementById("quoteDate").innerText=new Date().toLocaleDateString();')
+HTML_PARTS.append('let grandText=document.getElementById("grandTotal").innerText;')
+HTML_PARTS.append('document.getElementById("waLink1").href="whatsapp://send?phone=263783788376";')
+HTML_PARTS.append('showScreen("preview");}')
+HTML_PARTS.append('async function sendAI(){')
+HTML_PARTS.append('let input=document.getElementById("aiInput");')
+HTML_PARTS.append('let msg=input.value;if(!msg){return;}')
+HTML_PARTS.append('let chat=document.getElementById("aiChat");')
+HTML_PARTS.append('chat.innerHTML+="<div class=\\"bg-white/10 border p-3 text-right rounded-xl\\">"+msg+"</div>";')
+HTML_PARTS.append('input.value="";')
+HTML_PARTS.append('try{')
+HTML_PARTS.append('let r=await fetch("/whatsapp",{method:"POST",')
+HTML_PARTS.append('headers:{"Content-Type":"application/json"},')
+HTML_PARTS.append('body:JSON.stringify({phone:"263783788376",message:msg})});')
+HTML_PARTS.append('let d=await r.json();')
+HTML_PARTS.append('chat.innerHTML+="<div class=\\"bg-[#5b7cff]/20 border p-4 rounded-xl\\">"+d.reply+"</div>";')
+HTML_PARTS.append('chat.scrollTop=chat.scrollHeight;')
+HTML_PARTS.append('}catch(e){')
+HTML_PARTS.append('chat.innerHTML+="<div class=\\"bg-red-500/10 border p-3 rounded-xl\\">Kai offline</div>";}}')
+HTML_PARTS.append('function quickAI(t){')
+HTML_PARTS.append('document.getElementById("aiInput").value=t;sendAI();}')
+HTML_PARTS.append('</script></body></html>')
+
+HTML_TEMPLATE = "".join(HTML_PARTS)
+HTML_FINAL = HTML_TEMPLATE.replace("__MATS__", MATS_JSON)
+HTML_FINAL = HTML_FINAL.replace("__SUBS__", SUBS_JSON)
+HTML_FINAL = HTML_FINAL.replace("__FLOOR__", FLOOR_JSON)
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return HTML_FINAL
+
+@app.post("/whatsapp")
+async def whatsapp_backend(request: Request):
+    try:
+        data = await request.json()
+        phone = data.get("phone", "263")
+        message = data.get("message", "hi")
+        reply = handle_whatsapp_message(phone, message)
+        return {"reply": reply, "kai": True}
+    except Exception as e:
+        return {"reply": "ANREVAZ", "error": str(e)}
+
+@app.get("/health")
+def health():
+    return {"status": "LIVE v12.7 ULTRA SHORT FIXED"}
+    
